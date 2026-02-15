@@ -15,6 +15,7 @@ if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
+// mapped disk folder → HTTP route
 app.use("/files", express.static(UPLOAD_DIR));
 
 const storage = multer.diskStorage({
@@ -27,9 +28,11 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 2 * 1024 * 1024 * 1024 },
+  limits: { fileSize: 2 * 1024 * 1024 * 1024 }, // 2GB
 });
 
+// Upload endpoint: saves files into UPLOAD_DIR
+// so the upload flow ( Client → POST /upload → Server → Save file → Return link )
 app.post("/upload", upload.array("files", 3), (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
@@ -53,6 +56,33 @@ app.post("/upload", upload.array("files", 3), (req, res) => {
   }
 });
 
-app.listen(4000, "0.0.0.0", () => {
+// for list files
+app.get("/api/files", (req, res) => {
+  try {
+    const names = fs.readdirSync(UPLOAD_DIR);
+
+    const files = names.map((name) => {
+      const fullPath = path.join(UPLOAD_DIR, name);
+      const stat = fs.statSync(fullPath);
+
+      return {
+        filename: name,
+        size: stat.size,
+        modified: stat.mtime,
+        url: `/files/${name}`,
+      };
+    });
+
+    res.json({ count: files.length, files });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to list files" });
+  }
+});
+
+
+
+// port binding
+app.listen(4000, "100.126.179.32", () => {
   console.log("Server running on port 4000");
 });
+
