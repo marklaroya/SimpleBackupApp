@@ -5,6 +5,7 @@ const path = require("path");
 const fs = require("fs");
 require("dotenv").config();
 
+
 const app = express();
 app.use(cors());
 
@@ -80,9 +81,11 @@ app.get("/api/files", (req, res) => {
 });
 
 
+const PORT = process.env.PORT;
+const HOST = process.env.HOST;
 
 // port binding
-app.listen(4000, "100.126.179.32", () => {
-  console.log("Server running on port 4000");
+app.listen(PORT, HOST, () => {
+  console.log(`Server running at http://${HOST}:${PORT}`);
 });
 
