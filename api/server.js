@@ -1,17 +1,12 @@
 const express = require("express");
-const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 require("dotenv").config();
 
-
 const app = express();
-app.use(cors());
 
-const UPLOAD_DIR =
-  process.env.UPLOAD_DIR || "/home/server/Backup";
-
+const UPLOAD_DIR = process.env.UPLOAD_DIR || "Backup";
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
@@ -34,12 +29,11 @@ const upload = multer({
 
 // Upload endpoint: saves files into UPLOAD_DIR
 // so the upload flow ( Client → POST /upload → Server → Save file → Return link )
-app.post("/upload", upload.array("files", 3), (req, res) => {
+app.post("/upload", upload.array("files", 20), (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: "No file inserted" });
     }
-
     const files = req.files.map((f) => ({
       filename: f.filename,
       originalname: f.originalname,
@@ -58,7 +52,7 @@ app.post("/upload", upload.array("files", 3), (req, res) => {
 });
 
 // for list files
-app.get("/api/files", (req, res) => {
+app.get("/backup/files", (req, res) => {
   try {
     const names = fs.readdirSync(UPLOAD_DIR);
 
@@ -80,7 +74,6 @@ app.get("/api/files", (req, res) => {
   }
 });
 
-
 const PORT = process.env.PORT;
 const HOST = process.env.HOST;
 
@@ -88,4 +81,3 @@ const HOST = process.env.HOST;
 app.listen(PORT, HOST, () => {
   console.log(`Server running at http://${HOST}:${PORT}`);
 });
-

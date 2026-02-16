@@ -1,0 +1,185 @@
+@import url("https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap");
+
+:root {
+  --bg: #070707;
+  --panel: rgba(255, 255, 255, 0.02);
+  --line: rgba(255, 255, 255, 0.72);
+  --dim: rgba(255, 255, 255, 0.65);
+  --text: rgba(255, 255, 255, 0.92);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at top, #1b1b1b 0%, #070707 60%, #050505 100%);
+  color: var(--text);
+  font-family: "Patrick Hand", system-ui, sans-serif;
+}
+
+.page {
+  min-height: 100vh;
+  padding: 28px 16px 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.title {
+  font-size: 56px;
+  letter-spacing: 2px;
+  margin: 6px 0 18px;
+}
+
+.card {
+  width: min(1100px, 95vw);
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: rgba(0,0,0,0.35);
+  overflow: hidden;
+}
+
+.cardTop {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  padding: 18px 22px;
+  border-bottom: 2px solid var(--line);
+}
+
+.cardTopLeft { font-size: 28px; }
+.cardTopCenter { text-align: center; font-size: 26px; letter-spacing: 1px; }
+
+.content {
+  padding: 28px 26px 26px;
+  display: grid;
+  gap: 26px;
+}
+
+.uploadBox {
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  padding: 22px 20px;
+  background: var(--panel);
+  width: min(680px, 92%);
+  margin: 0 auto;
+}
+
+.uploadLabel {
+  text-align: center;
+  font-size: 18px;
+  letter-spacing: 1px;
+  margin-bottom: 14px;
+  color: var(--dim);
+}
+
+.uploadRow {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.btn {
+  border: 2px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 16px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.meta {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.metaStrong { font-weight: 700; }
+.metaDim { color: var(--dim); }
+
+.tableBox {
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  padding: 18px 18px 12px;
+  background: var(--panel);
+}
+
+.tableHeader {
+  display: grid;
+  grid-template-columns: 1fr 160px;
+  padding: 10px 12px;
+  border-bottom: 2px solid rgba(255,255,255,0.25);
+  color: var(--dim);
+  letter-spacing: 1px;
+}
+
+.rows { padding: 8px 6px; }
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 160px;
+  gap: 10px;
+  padding: 12px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+}
+
+.rowFile {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.downloadLink {
+  text-decoration: none;
+  color: var(--text);
+  border: 2px solid rgba(255,255,255,0.45);
+  padding: 6px 10px;
+  border-radius: 10px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 120px;
+  margin-left: auto;
+}
+
+.downloadLink:hover { border-color: var(--line); }
+
+.tableEmpty { padding: 18px 10px; color: var(--dim); }
+
+.tableFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 8px 6px;
+}
+
+.statusLine {
+  text-align: center;
+  color: var(--dim);
+}
+
+.dropZone {
+  border: 2px dashed rgba(255,255,255,0.55);
+  border-radius: 14px;
+  padding: 18px;
+  text-align: center;
+  background: rgba(255,255,255,0.02);
+  margin: 10px auto 14px;
+  width: min(680px, 92%);
+  transition: transform 0.08s ease, border-color 0.15s ease;
+}
+
+.dropZoneActive {
+  border-color: rgba(255,255,255,0.9);
+  transform: scale(1.01);
+}
