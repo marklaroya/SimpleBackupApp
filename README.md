@@ -1,16 +1,75 @@
-# React + Vite
+# Simple Backup Web App (Self-Hosted)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A lightweight self-hosted backup web application built using **Node.js**, **Express**, and **Multer**, deployed on a personal **Ubuntu home server** (old laptop).
 
-Currently, two official plugins are available:
+This project allows file uploads to a local server directory and provides HTTP access to uploaded files.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## 🚀 Project Overview
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+This application was built as part of a home server setup project to:
 
-## Expanding the ESLint configuration
+- Practice backend development
+- Learn Linux server management
+- Implement file upload handling
+- Understand static file serving
+- Deploy and manage applications on Ubuntu
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## 🛠 Tech Stack
+
+- Node.js
+- Express.js
+- Multer (File Upload Handling)
+- dotenv (Environment Variables)
+- Ubuntu Desktop (Home Server)
+- CORS
+
+---
+
+## 📂 How It Works
+
+- Files are uploaded using `multipart/form-data`
+- Files are stored inside a configured server directory
+- Uploaded files are accessible via:
+
+
+
+---
+
+## ⚙️ Environment Configuration
+
+🧪 Running the Project
+
+1. Install dependencies
+npm install
+
+2. Start the server
+node server.js
+
+Server runs at:
+http://localhost:5000 
+
+
+## 🔐 Security Notes
+
+This is a personal learning project.
+If exposed to the internet, improvements should include:
+
+- Authentication (JWT or sessions)
+
+- File type validation
+
+- Rate limiting
+
+- HTTPS (Nginx + Let's Encrypt)
+
+- Private file access control
+
+## UI
+![alt text](image.png)
+
+## 👨‍💻 Author
+Mark Lester Laroya
