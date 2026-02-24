@@ -13,7 +13,9 @@ const formatSize = (bytes) => {
 };
 
 export default function App() {
-  const API = import.meta.env.VITE_API_BASE || "Netbird IP:4000";
+  const API =
+    import.meta.env.VITE_API_BASE ||
+    `${window.location.protocol}//${window.location.hostname}:4000`;
 
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
