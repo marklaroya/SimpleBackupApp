@@ -8,12 +8,16 @@ require("dotenv").config();
 const app = express();
 app.use(cors());
 
+const MAX_FILE_SIZE_GB = 10;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_GB * 1024 * 1024 * 1024;
+const MAX_FILES_PER_UPLOAD = 20;
+
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "Backup";
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-// mapped disk folder → HTTP route
+// Mapped disk folder to HTTP route
 app.use("/files", express.static(UPLOAD_DIR));
 
 const storage = multer.diskStorage({
@@ -26,16 +30,39 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 2 * 1024 * 1024 * 1024 }, // 2GB
+  limits: {
+    fileSize: MAX_FILE_SIZE_BYTES,
+    files: MAX_FILES_PER_UPLOAD,
+  },
 });
 
 // Upload endpoint: saves files into UPLOAD_DIR
-// so the upload flow ( Client → POST /upload → Server → Save file → Return link )
-app.post("/upload", upload.array("files", 20), (req, res) => {
-  try {
+app.post("/upload", (req, res) => {
+  upload.array("files", MAX_FILES_PER_UPLOAD)(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(413).json({
+          message: `File too large. Max allowed size is ${MAX_FILE_SIZE_GB} GB per file.`,
+        });
+      }
+
+      if (err.code === "LIMIT_FILE_COUNT") {
+        return res.status(413).json({
+          message: `Too many files. Max allowed is ${MAX_FILES_PER_UPLOAD} files per upload.`,
+        });
+      }
+
+      return res.status(400).json({ message: err.message });
+    }
+
+    if (err) {
+      return res.status(500).json({ message: "Upload failed due to a server error." });
+    }
+
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: "No file inserted" });
     }
+
     const files = req.files.map((f) => ({
       filename: f.filename,
       originalname: f.originalname,
@@ -43,18 +70,16 @@ app.post("/upload", upload.array("files", 20), (req, res) => {
       url: `/files/${f.filename}`,
     }));
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Files uploaded successfully",
       count: files.length,
       files,
     });
-  } catch (error) {
-    res.status(500).json({ message: "Server error" });
-  }
+  });
 });
 
-// for list files
-app.get("/backup/files", (req, res) => {
+// List files
+app.get("/backup/files", (_req, res) => {
   try {
     const names = fs.readdirSync(UPLOAD_DIR);
 
@@ -71,7 +96,7 @@ app.get("/backup/files", (req, res) => {
     });
 
     res.json({ count: files.length, files });
-  } catch (err) {
+  } catch (_err) {
     res.status(500).json({ message: "Failed to list files" });
   }
 });
@@ -79,7 +104,7 @@ app.get("/backup/files", (req, res) => {
 const PORT = process.env.PORT;
 const HOST = process.env.HOST;
 
-// port binding
+// Port binding
 app.listen(PORT, HOST, () => {
   console.log(`Server running at http://${HOST}:${PORT}`);
 });

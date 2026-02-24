@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import UploadBox from "./components/UploadBox.jsx";
 import FileTable from "./components/FileTable.jsx";
+
+const LOAD_TIMEOUT_MS = 15000;
 
 const formatSize = (bytes) => {
   if (!bytes) return "0 B";
@@ -20,6 +22,7 @@ export default function App() {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
+  const activeLoadController = useRef(null);
 
   const totalBytes = useMemo(
     () => files.reduce((sum, file) => sum + (file?.size || 0), 0),
@@ -27,22 +30,48 @@ export default function App() {
   );
 
   const loadFiles = async () => {
+    if (activeLoadController.current) {
+      activeLoadController.current.abort();
+    }
+
+    const controller = new AbortController();
+    activeLoadController.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), LOAD_TIMEOUT_MS);
+
     setLoading(true);
     setStatus((prev) => (prev.includes("Upload complete") ? prev : ""));
     try {
-      const res = await fetch(`${API}/backup/files`);
+      const res = await fetch(`${API}/backup/files`, {
+        signal: controller.signal,
+        cache: "no-store",
+      });
       if (!res.ok) throw new Error(`List failed (${res.status})`);
       const data = await res.json();
       setFiles(data.files || []);
     } catch (e) {
-      setStatus(e.message || "Failed to load files");
+      if (activeLoadController.current !== controller) return;
+
+      if (e?.name === "AbortError") {
+        setStatus("Server request timed out. Please try Refresh.");
+      } else {
+        setStatus(e.message || "Failed to load files");
+      }
     } finally {
-      setLoading(false);
+      clearTimeout(timeoutId);
+      if (activeLoadController.current === controller) {
+        activeLoadController.current = null;
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
     loadFiles();
+    return () => {
+      if (activeLoadController.current) {
+        activeLoadController.current.abort();
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

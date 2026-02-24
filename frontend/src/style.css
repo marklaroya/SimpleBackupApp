@@ -65,7 +65,8 @@ body {
 .shell {
   position: relative;
   z-index: 1;
-  width: min(1160px, 96vw);
+  width: 100%;
+  max-width: 1160px;
   margin: 0 auto;
   display: grid;
   gap: 20px;
@@ -141,6 +142,11 @@ body {
   grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
   gap: 18px;
   align-items: start;
+  min-width: 0;
+}
+
+.panelGrid > * {
+  min-width: 0;
 }
 
 .uploadBox,
@@ -309,6 +315,7 @@ body {
   gap: 8px;
   overflow-x: auto;
   padding-bottom: 2px;
+  max-width: 100%;
 }
 
 .categoryChip {
@@ -574,5 +581,224 @@ body {
   .tableFooter {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
+/* Stored Files v2 */
+.tableBoxV2 {
+  display: grid;
+  gap: 10px;
+  --actions-col-width: clamp(150px, 18vw, 190px);
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tableControlsSticky {
+  position: sticky;
+  top: 10px;
+  z-index: 3;
+  border: 1px solid rgba(126, 193, 255, 0.2);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(8, 20, 38, 0.96), rgba(8, 20, 38, 0.86));
+  padding: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.tableToolsV2 {
+  grid-template-columns: minmax(0, 1fr) minmax(110px, 150px) minmax(100px, 120px);
+}
+
+.fieldSelectCompact {
+  font-size: 0.79rem;
+}
+
+.tableHeaderV2 {
+  grid-template-columns: minmax(0, 1fr) var(--actions-col-width);
+}
+
+.tableHeaderV2 span:last-child {
+  justify-self: end;
+}
+
+.rowsV2 {
+  max-height: 470px;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.rowV2 {
+  grid-template-columns: minmax(0, 1fr) var(--actions-col-width);
+  align-items: center;
+  overflow-x: hidden;
+}
+
+.rowLead {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.fileSubRowV2 {
+  gap: 7px;
+}
+
+.fileSubRowV2 .fileSub {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  border: 1px solid rgba(126, 193, 255, 0.2);
+  border-radius: 999px;
+  padding: 1px 7px;
+  background: rgba(10, 24, 43, 0.6);
+}
+
+.rowActionsV2 {
+  align-items: center;
+  position: relative;
+  width: var(--actions-col-width);
+  justify-content: flex-end;
+}
+
+.rowMenuWrap {
+  position: relative;
+}
+
+.rowMenuWrap > summary {
+  list-style: none;
+}
+
+.rowMenuWrap > summary::-webkit-details-marker {
+  display: none;
+}
+
+.rowMenu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 128px;
+  border: 1px solid rgba(126, 193, 255, 0.3);
+  border-radius: 10px;
+  background: rgba(7, 18, 34, 0.96);
+  padding: 6px;
+  display: grid;
+  gap: 5px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38);
+}
+
+.rowMenuItem {
+  border: 1px solid rgba(126, 193, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(13, 24, 42, 0.76);
+  color: var(--text);
+  text-decoration: none;
+  padding: 7px 9px;
+  font: 600 0.75rem/1 "Space Grotesk", sans-serif;
+  cursor: pointer;
+  text-align: left;
+}
+
+.rowMenuItem:hover {
+  border-color: rgba(89, 223, 191, 0.6);
+}
+
+.tableFooterV2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--actions-col-width);
+  align-items: center;
+}
+
+.tableFooterMain {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tableSummary {
+  text-align: center;
+  margin-left: auto;
+}
+
+.tableFooterV2 > .btn {
+  justify-self: end;
+}
+
+@media (max-width: 1200px) {
+  .panelGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 980px) {
+  .tableControlsSticky {
+    top: 6px;
+  }
+
+  .tableToolsV2 {
+    grid-template-columns: minmax(0, 1fr) minmax(110px, 140px) minmax(100px, 120px);
+  }
+}
+
+@media (max-width: 900px) {
+  .tableToolsV2 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .tableToolsV2 .fieldInput {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .tableControlsSticky {
+    position: static;
+    padding: 10px;
+  }
+
+  .tableToolsV2 {
+    grid-template-columns: 1fr;
+  }
+
+  .rowV2 {
+    grid-template-columns: 1fr;
+  }
+
+  .rowActionsV2 {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .rowMenu {
+    left: 0;
+    right: auto;
+  }
+
+  .tableFooterV2 {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .tableFooterMain {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .pager {
+    justify-content: center;
+  }
+
+  .tableSummary {
+    text-align: center;
   }
 }
