@@ -1,4 +1,4 @@
-name: Deploy to Dell-Server
+name: Deploy on Dell Server
 
 on:
   push:
@@ -6,17 +6,11 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          port: ${{ secrets.SSH_PORT }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            set -e
-            cd /home/server/prj/SimpleBackupApp
-            git pull origin main
-            docker compose up -d --build
+      - name: Deploy latest
+        run: |
+          set -e
+          cd /home/server/prj/SimpleBackupApp
+          git pull origin main
+          docker compose up -d --build
