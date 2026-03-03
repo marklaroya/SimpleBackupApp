@@ -7,10 +7,12 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
+
     steps:
-      - name: Deploy latest
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Deploy with Docker
         run: |
-          set -e
-          cd /home/server/prj/SimpleBackupApp
-          git pull origin main
+          docker compose down
           docker compose up -d --build
