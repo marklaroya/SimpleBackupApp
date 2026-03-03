@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: ./api
+    container_name: backup-api
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 4000
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - /home/server/Backup:/data/uploads
+    ports:
+      - "4000:4000"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: backup-frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
