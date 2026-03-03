@@ -88,7 +88,7 @@ export default function App() {
 
       <main className="shell">
         <header className="hero">
-          <div className="heroBadge">Self-hosted backup</div>
+          <div className="heroBadge">Self-hosted backup Web App</div>
           <h1>Backup Vault</h1>
           <p>Upload, track, and download files from backup directory.</p>
 
