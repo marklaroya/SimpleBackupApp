@@ -39,7 +39,7 @@ export default function App() {
     const timeoutId = setTimeout(() => controller.abort(), LOAD_TIMEOUT_MS);
 
     setLoading(true);
-    setStatus((prev) => (prev.includes("Upload complete") ? prev : ""));
+    setStatus((prev) => (/Upload complete|File deleted/i.test(prev) ? prev : ""));
     try {
       const res = await fetch(`${API}/backup/files`, {
         signal: controller.signal,
@@ -123,6 +123,10 @@ export default function App() {
             loading={loading}
             apiBase={API}
             onRefresh={loadFiles}
+            onDelete={async (_filename, message) => {
+              setStatus(message || "File deleted");
+              await loadFiles();
+            }}
           />
         </section>
 

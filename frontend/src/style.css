@@ -588,7 +588,7 @@ body {
 .tableBoxV2 {
   display: grid;
   gap: 10px;
-  --actions-col-width: clamp(150px, 18vw, 190px);
+  --actions-col-width: clamp(220px, 27vw, 280px);
   width: 100%;
   min-width: 0;
   overflow: hidden;
@@ -658,8 +658,11 @@ body {
 .rowActionsV2 {
   align-items: center;
   position: relative;
+  display: flex;
   width: var(--actions-col-width);
   justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .rowMenuWrap {
@@ -702,6 +705,31 @@ body {
 
 .rowMenuItem:hover {
   border-color: rgba(89, 223, 191, 0.6);
+}
+
+.rowMenuItem:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.rowMenuDanger {
+  border-color: rgba(255, 111, 123, 0.45);
+  background: rgba(75, 17, 29, 0.45);
+  color: #ffd7dc;
+}
+
+.rowMenuDanger:hover:not(:disabled) {
+  border-color: rgba(255, 111, 123, 0.75);
+}
+
+.miniBtnDanger {
+  border-color: rgba(255, 111, 123, 0.55);
+  background: rgba(75, 17, 29, 0.5);
+  color: #ffd7dc;
+}
+
+.miniBtnDanger:hover:not(:disabled) {
+  border-color: rgba(255, 111, 123, 0.78);
 }
 
 .tableFooterV2 {
@@ -757,6 +785,23 @@ body {
 
   .tableToolsV2 .fieldInput {
     grid-column: 1 / -1;
+  }
+
+  .tableBoxV2 {
+    --actions-col-width: 100%;
+  }
+
+  .tableHeaderV2 {
+    display: none;
+  }
+
+  .rowV2 {
+    grid-template-columns: 1fr;
+  }
+
+  .rowActionsV2 {
+    width: 100%;
+    justify-content: flex-start;
   }
 }
 

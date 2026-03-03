@@ -77,18 +77,41 @@ const inferCategory = (filename) => {
   return "Other";
 };
 
-const displayName = (filename) => {
-  if (!filename) return "Unnamed file";
-  return filename.replace(/^\d{12,}-/, "");
+const LEGACY_PREFIX_RE = /^(\d{12,})-(.+)$/;
+
+const parseLegacyName = (filename) => {
+  if (!filename) {
+    return { cleaned: "Unnamed file", legacyId: "", isLegacy: false };
+  }
+
+  const match = filename.match(LEGACY_PREFIX_RE);
+  if (!match) {
+    return { cleaned: filename, legacyId: "", isLegacy: false };
+  }
+
+  return {
+    cleaned: match[2] || filename,
+    legacyId: match[1].slice(-4),
+    isLegacy: true,
+  };
 };
 
-export default function FileTable({ files, loading, apiBase, onRefresh }) {
+const addDuplicateIndex = (name, index) => {
+  const dotIndex = name.lastIndexOf(".");
+  if (dotIndex <= 0) return `${name} (${index})`;
+  const base = name.slice(0, dotIndex);
+  const ext = name.slice(dotIndex);
+  return `${base} (${index})${ext}`;
+};
+
+export default function FileTable({ files, loading, apiBase, onRefresh, onDelete }) {
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [copyMessage, setCopyMessage] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
   const [page, setPage] = useState(1);
+  const [deletingFilename, setDeletingFilename] = useState("");
 
   const categoryCounts = useMemo(() => {
     const counts = Object.fromEntries(CATEGORY_ORDER.map((name) => [name, 0]));
@@ -134,6 +157,38 @@ export default function FileTable({ files, loading, apiBase, onRefresh }) {
 
   const totalPages = Math.max(1, Math.ceil(filteredFiles.length / pageSize));
   const currentPage = Math.min(page, totalPages);
+  const displayNameByFilename = useMemo(() => {
+    const groups = new Map();
+
+    files.forEach((file) => {
+      const parsed = parseLegacyName(file.filename);
+      if (!groups.has(parsed.cleaned)) groups.set(parsed.cleaned, []);
+      groups.get(parsed.cleaned).push(file);
+    });
+
+    const labels = new Map();
+
+    groups.forEach((groupFiles, cleaned) => {
+      if (groupFiles.length === 1) {
+        labels.set(groupFiles[0].filename, cleaned);
+        return;
+      }
+
+      // Stable ordering so duplicate labels do not jump when user changes sort/filter.
+      const sortedGroup = [...groupFiles].sort((a, b) => {
+        const timeA = new Date(a.modified || 0).getTime();
+        const timeB = new Date(b.modified || 0).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+        return (a.filename || "").localeCompare(b.filename || "");
+      });
+
+      sortedGroup.forEach((file, idx) => {
+        labels.set(file.filename, addDuplicateIndex(cleaned, idx + 1));
+      });
+    });
+
+    return labels;
+  }, [files]);
 
   useEffect(() => {
     if (!copyMessage) return;
@@ -157,6 +212,37 @@ export default function FileTable({ files, loading, apiBase, onRefresh }) {
       setCopyMessage("Link copied.");
     } catch {
       setCopyMessage("Copy failed.");
+    }
+  };
+
+  const deleteFile = async (file, uiName) => {
+    const ok = window.confirm(`Delete "${uiName}"? This cannot be undone.`);
+    if (!ok) return;
+
+    setDeletingFilename(file.filename);
+    try {
+      let res = await fetch(
+        `${apiBase}/backup/files/${encodeURIComponent(file.filename)}`,
+        { method: "DELETE" }
+      );
+
+      // Fallback for environments where DELETE is blocked by proxy config.
+      if (res.status === 404 || res.status === 405) {
+        res = await fetch(`${apiBase}/backup/files/delete`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: file.filename }),
+        });
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || `Delete failed (${res.status})`);
+
+      setCopyMessage("File deleted.");
+      await onDelete?.(file.filename, data.message);
+    } catch (e) {
+      setCopyMessage(e.message || "Delete failed.");
+    } finally {
+      setDeletingFilename("");
     }
   };
 
@@ -248,6 +334,9 @@ export default function FileTable({ files, loading, apiBase, onRefresh }) {
           {visibleFiles.map((file) => {
             const absoluteUrl = `${apiBase}${file.url}`;
             const category = inferCategory(file.filename);
+            const parsedName = parseLegacyName(file.filename);
+            const uiName = displayNameByFilename.get(file.filename) || parsedName.cleaned;
+            const isDeleting = deletingFilename === file.filename;
 
             return (
               <div className="row rowV2" key={file.filename}>
@@ -256,7 +345,7 @@ export default function FileTable({ files, loading, apiBase, onRefresh }) {
 
                   <div className="fileMeta">
                     <div className="fileName" title={file.filename}>
-                      {displayName(file.filename)}
+                      {uiName}
                     </div>
 
                     <div className="fileSubRow fileSubRowV2">
@@ -271,18 +360,17 @@ export default function FileTable({ files, loading, apiBase, onRefresh }) {
                   <a className="miniBtn miniBtnStrong" href={absoluteUrl} target="_blank" rel="noreferrer">
                     Download
                   </a>
-
-                  <details className="rowMenuWrap">
-                    <summary className="miniBtn">More</summary>
-                    <div className="rowMenu">
-                      <button type="button" className="rowMenuItem" onClick={() => copyLink(absoluteUrl)}>
-                        Copy link
-                      </button>
-                      <a className="rowMenuItem" href={absoluteUrl} target="_blank" rel="noreferrer">
-                        Open file
-                      </a>
-                    </div>
-                  </details>
+                  <button type="button" className="miniBtn" onClick={() => copyLink(absoluteUrl)}>
+                    Copy
+                  </button>
+                  <button
+                    type="button"
+                    className="miniBtn miniBtnDanger"
+                    onClick={() => deleteFile(file, uiName)}
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? "Deleting..." : "Delete"}
+                  </button>
                 </div>
               </div>
             );
