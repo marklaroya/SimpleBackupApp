@@ -14,6 +14,7 @@ const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_GB * 1024 * 1024 * 1024;
 const MAX_FILES_PER_UPLOAD = 20;
 const MAX_BASE_NAME_LENGTH = 120;
 const MAX_EXT_LENGTH = 20;
+const STATIC_CACHE_MAX_AGE = process.env.STATIC_CACHE_MAX_AGE || "1h";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "Backup";
 if (!fs.existsSync(UPLOAD_DIR)) {
@@ -21,7 +22,15 @@ if (!fs.existsSync(UPLOAD_DIR)) {
 }
 
 // Mapped disk folder to HTTP route
-app.use("/files", express.static(UPLOAD_DIR));
+app.use(
+  "/files",
+  express.static(UPLOAD_DIR, {
+    maxAge: STATIC_CACHE_MAX_AGE,
+    etag: true,
+    lastModified: true,
+    acceptRanges: true,
+  })
+);
 
 const sanitizeUploadedName = (originalName) => {
   const parsed = path.parse((originalName || "file").normalize("NFKC"));
@@ -42,6 +51,7 @@ const sanitizeUploadedName = (originalName) => {
   return `${baseName}${ext}`;
 };
 
+// unique name file when uploaded
 const ensureUniqueName = (directory, initialName) => {
   const parsed = path.parse(initialName);
   let nextName = initialName;
@@ -54,6 +64,7 @@ const ensureUniqueName = (directory, initialName) => {
 
   return nextName;
 };
+
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
@@ -137,6 +148,8 @@ app.get("/backup/files", (_req, res) => {
   }
 });
 
+
+// Deleting a File
 const deleteSingleFile = (filename, res) => {
   try {
     const normalized = (filename || "").trim();

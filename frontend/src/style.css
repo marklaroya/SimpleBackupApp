@@ -221,6 +221,60 @@ body {
   flex-wrap: wrap;
 }
 
+.uploadProgress {
+  margin-top: 12px;
+  border: 1px solid rgba(126, 193, 255, 0.28);
+  border-radius: 12px;
+  background: rgba(9, 21, 38, 0.72);
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.uploadProgressTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.uploadProgressLabel,
+.uploadProgressPercent,
+.uploadProgressMeta {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.75rem;
+}
+
+.uploadProgressLabel {
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.uploadProgressPercent {
+  color: #b7f5e4;
+}
+
+.uploadProgressTrack {
+  width: 100%;
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(126, 193, 255, 0.18);
+  overflow: hidden;
+}
+
+.uploadProgressFill {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(120deg, rgba(89, 223, 191, 0.95), rgba(88, 169, 255, 0.9));
+  transition: width 140ms ease;
+}
+
+.uploadProgressMeta {
+  color: var(--muted);
+}
+
 .btn {
   border: 1px solid var(--line-strong);
   border-radius: 11px;
@@ -291,6 +345,11 @@ body {
   padding: 4px 10px;
   font-size: 0.72rem;
   cursor: pointer;
+}
+
+.pillButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .selectedMore {

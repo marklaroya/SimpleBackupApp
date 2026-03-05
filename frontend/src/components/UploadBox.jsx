@@ -1,4 +1,8 @@
-import { useMemo, useRef, useState } from "react";
+import axios from "axios";
+import { useEffect, useMemo, useRef, useState } from "react";
+import UploadProgress from "./UploadProgress.jsx";
+
+const MAX_PARALLEL_UPLOADS = 3;
 
 const formatSize = (bytes) => {
   if (!bytes) return "0 B";
@@ -16,7 +20,14 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
   const [selected, setSelected] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [progress, setProgress] = useState({
+    active: false,
+    percent: 0,
+    loadedBytes: 0,
+    totalBytes: 0,
+  });
   const inputRef = useRef(null);
+  const uploadAbortRef = useRef(null);
 
   const totalBytes = useMemo(
     () => selected.reduce((sum, file) => sum + (file?.size || 0), 0),
@@ -73,34 +84,120 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
     if (inputRef.current) inputRef.current.value = "";
   };
 
+  const cancelUpload = () => {
+    const controller = uploadAbortRef.current;
+    if (!controller || controller.signal.aborted) return;
+    controller.abort();
+    onStatus?.("Upload canceled.");
+  };
+
+  useEffect(() => {
+    return () => {
+      const controller = uploadAbortRef.current;
+      if (controller && !controller.signal.aborted) {
+        controller.abort();
+      }
+    };
+  }, []);
+
   const upload = async () => {
     if (selected.length === 0) {
       onStatus?.("Please select at least one file first.");
       return;
     }
 
+    const expectedTotalBytes = selected.reduce((sum, file) => sum + (file?.size || 0), 0);
+    const abortController = new AbortController();
+    uploadAbortRef.current = abortController;
+    const loadedByFile = new Map();
+    const totalByFile = new Map(selected.map((file) => [fileKey(file), file.size || 0]));
+    const updateAggregateProgress = () => {
+      let loaded = 0;
+      let total = 0;
+
+      totalByFile.forEach((fileTotal, key) => {
+        const safeTotal = Math.max(0, Number(fileTotal) || 0);
+        total += safeTotal;
+        loaded += Math.min(Math.max(0, Number(loadedByFile.get(key)) || 0), safeTotal || Infinity);
+      });
+
+      if (total <= 0) total = expectedTotalBytes;
+      if (loaded > total && total > 0) loaded = total;
+
+      const nextPercent = total > 0 ? Math.round((loaded / total) * 100) : 0;
+      setProgress({
+        active: true,
+        percent: nextPercent,
+        loadedBytes: loaded,
+        totalBytes: total,
+      });
+    };
+
     setUploading(true);
+    setProgress({
+      active: true,
+      percent: 0,
+      loadedBytes: 0,
+      totalBytes: expectedTotalBytes,
+    });
     onStatus?.("Uploading files...");
 
     try {
-      const form = new FormData();
-      selected.forEach((file) => form.append("files", file));
+      const uploadSingleFile = async (file) => {
+        const key = fileKey(file);
+        const form = new FormData();
+        form.append("files", file);
 
-      const res = await fetch(`${apiBase}/upload`, {
-        method: "POST",
-        body: form,
+        await axios.post(`${apiBase}/upload`, form, {
+          signal: abortController.signal,
+          onUploadProgress: (event) => {
+            loadedByFile.set(key, event.loaded || 0);
+            if (event.total && event.total > 0) {
+              totalByFile.set(key, event.total);
+            }
+            updateAggregateProgress();
+          },
+        });
+
+        loadedByFile.set(key, totalByFile.get(key) || file.size || 0);
+        updateAggregateProgress();
+      };
+
+      const workerCount = Math.min(MAX_PARALLEL_UPLOADS, selected.length);
+      const queue = [...selected];
+      const workers = Array.from({ length: workerCount }, async () => {
+        while (queue.length > 0) {
+          if (abortController.signal.aborted) return;
+          const nextFile = queue.shift();
+          if (!nextFile) return;
+          await uploadSingleFile(nextFile);
+        }
       });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Upload failed (${res.status})`);
+      await Promise.all(workers);
+
+      setProgress((prev) => ({
+        ...prev,
+        active: true,
+        percent: 100,
+        loadedBytes: prev.totalBytes || prev.loadedBytes,
+      }));
 
       clearSelection();
       onUploaded?.();
       onStatus?.("Upload complete");
     } catch (e) {
-      onStatus?.(e.message || "Upload error");
+      const isCanceled = e?.code === "ERR_CANCELED" || e?.name === "CanceledError";
+      const message = isCanceled
+        ? "Upload canceled."
+        : e?.response?.data?.message || e?.message || "Upload error";
+      onStatus?.(message);
     } finally {
+      if (uploadAbortRef.current === abortController) {
+        uploadAbortRef.current = null;
+      }
       setUploading(false);
+      setProgress((prev) => ({ ...prev, active: false }));
     }
   };
 
@@ -138,7 +235,18 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
         <button className="btn btnGhost" onClick={clearSelection} disabled={selected.length === 0 || uploading}>
           Clear
         </button>
+
+        <button className="btn btnGhost" onClick={cancelUpload} disabled={!uploading}>
+          Cancel Upload
+        </button>
       </div>
+
+      <UploadProgress
+        active={progress.active}
+        percent={progress.percent}
+        loadedBytes={progress.loadedBytes}
+        totalBytes={progress.totalBytes || totalBytes}
+      />
 
       {selected.length > 0 && (
         <div className="selectedList">
@@ -148,7 +256,12 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
                 {file.name}
               </span>
               <span className="selectedSize">{formatSize(file.size)}</span>
-              <button type="button" className="pillButton" onClick={() => removeSelected(file)}>
+              <button
+                type="button"
+                className="pillButton"
+                onClick={() => removeSelected(file)}
+                disabled={uploading}
+              >
                 Remove
               </button>
             </div>

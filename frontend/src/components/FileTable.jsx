@@ -3,7 +3,20 @@ import { useEffect, useMemo, useState } from "react";
 const CATEGORY_GROUPS = [
   {
     label: "Documents",
-    exts: ["pdf", "doc", "docx", "txt", "rtf", "odt", "md", "ppt", "pptx", "xls", "xlsx", "csv"],
+    exts: [
+      "pdf",
+      "doc",
+      "docx",
+      "txt",
+      "rtf",
+      "odt",
+      "md",
+      "ppt",
+      "pptx",
+      "xls",
+      "xlsx",
+      "csv",
+    ],
   },
   {
     label: "Images",
@@ -23,7 +36,25 @@ const CATEGORY_GROUPS = [
   },
   {
     label: "Code",
-    exts: ["js", "jsx", "ts", "tsx", "py", "java", "c", "cpp", "cs", "go", "rs", "php", "html", "css", "json", "yml", "yaml"],
+    exts: [
+      "js",
+      "jsx",
+      "ts",
+      "tsx",
+      "py",
+      "java",
+      "c",
+      "cpp",
+      "cs",
+      "go",
+      "rs",
+      "php",
+      "html",
+      "css",
+      "json",
+      "yml",
+      "yaml",
+    ],
   },
 ];
 
@@ -104,7 +135,13 @@ const addDuplicateIndex = (name, index) => {
   return `${base} (${index})${ext}`;
 };
 
-export default function FileTable({ files, loading, apiBase, onRefresh, onDelete }) {
+export default function FileTable({
+  files,
+  loading,
+  apiBase,
+  onRefresh,
+  onDelete,
+}) {
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [copyMessage, setCopyMessage] = useState("");
@@ -129,8 +166,11 @@ export default function FileTable({ files, loading, apiBase, onRefresh, onDelete
     const normalized = query.trim().toLowerCase();
 
     const filtered = files.filter((file) => {
-      const matchesQuery = !normalized || (file.filename || "").toLowerCase().includes(normalized);
-      const matchesCategory = activeCategory === "All" || inferCategory(file.filename) === activeCategory;
+      const matchesQuery =
+        !normalized || (file.filename || "").toLowerCase().includes(normalized);
+      const matchesCategory =
+        activeCategory === "All" ||
+        inferCategory(file.filename) === activeCategory;
       return matchesQuery && matchesCategory;
     });
 
@@ -199,7 +239,10 @@ export default function FileTable({ files, loading, apiBase, onRefresh, onDelete
   const startIndex = (currentPage - 1) * pageSize;
   const visibleFiles = filteredFiles.slice(startIndex, startIndex + pageSize);
   const rangeStart = filteredFiles.length === 0 ? 0 : startIndex + 1;
-  const rangeEnd = Math.min(startIndex + visibleFiles.length, filteredFiles.length);
+  const rangeEnd = Math.min(
+    startIndex + visibleFiles.length,
+    filteredFiles.length,
+  );
 
   const copyLink = async (url) => {
     if (!navigator?.clipboard) {
@@ -223,7 +266,7 @@ export default function FileTable({ files, loading, apiBase, onRefresh, onDelete
     try {
       let res = await fetch(
         `${apiBase}/backup/files/${encodeURIComponent(file.filename)}`,
-        { method: "DELETE" }
+        { method: "DELETE" },
       );
 
       // Fallback for environments where DELETE is blocked by proxy config.
@@ -235,7 +278,8 @@ export default function FileTable({ files, loading, apiBase, onRefresh, onDelete
         });
       }
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Delete failed (${res.status})`);
+      if (!res.ok)
+        throw new Error(data.message || `Delete failed (${res.status})`);
 
       setCopyMessage("File deleted.");
       await onDelete?.(file.filename, data.message);
@@ -327,7 +371,9 @@ export default function FileTable({ files, loading, apiBase, onRefresh, onDelete
         <div className="tableEmpty">Loading files...</div>
       ) : visibleFiles.length === 0 ? (
         <div className="tableEmpty">
-          {hasActiveFilters ? "No matching files found." : "No files uploaded yet."}
+          {hasActiveFilters
+            ? "No matching files found."
+            : "No files uploaded yet."}
         </div>
       ) : (
         <div className="rows rowsV2">
@@ -335,13 +381,16 @@ export default function FileTable({ files, loading, apiBase, onRefresh, onDelete
             const absoluteUrl = `${apiBase}${file.url}`;
             const category = inferCategory(file.filename);
             const parsedName = parseLegacyName(file.filename);
-            const uiName = displayNameByFilename.get(file.filename) || parsedName.cleaned;
+            const uiName =
+              displayNameByFilename.get(file.filename) || parsedName.cleaned;
             const isDeleting = deletingFilename === file.filename;
 
             return (
               <div className="row rowV2" key={file.filename}>
                 <div className="rowLead">
-                  <span className="fileBadge">{getExtension(file.filename)}</span>
+                  <span className="fileBadge">
+                    {getExtension(file.filename)}
+                  </span>
 
                   <div className="fileMeta">
                     <div className="fileName" title={file.filename}>
@@ -350,17 +399,28 @@ export default function FileTable({ files, loading, apiBase, onRefresh, onDelete
 
                     <div className="fileSubRow fileSubRowV2">
                       <span className="fileCategory">{category}</span>
-                      <span className="fileSub">{formatDate(file.modified)}</span>
+                      <span className="fileSub">
+                        {formatDate(file.modified)}
+                      </span>
                       <span className="fileSub">{formatSize(file.size)}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="rowActions rowActionsV2">
-                  <a className="miniBtn miniBtnStrong" href={absoluteUrl} target="_blank" rel="noreferrer">
+                  <a
+                    className="miniBtn miniBtnStrong"
+                    href={absoluteUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     Download
                   </a>
-                  <button type="button" className="miniBtn" onClick={() => copyLink(absoluteUrl)}>
+                  <button
+                    type="button"
+                    className="miniBtn"
+                    onClick={() => copyLink(absoluteUrl)}
+                  >
                     Copy
                   </button>
                   <button
@@ -398,7 +458,9 @@ export default function FileTable({ files, loading, apiBase, onRefresh, onDelete
               className="btn btnGhost"
               type="button"
               onClick={() =>
-                setPage((p) => Math.min(totalPages, Math.min(p, totalPages) + 1))
+                setPage((p) =>
+                  Math.min(totalPages, Math.min(p, totalPages) + 1),
+                )
               }
               disabled={currentPage >= totalPages}
             >
@@ -407,7 +469,8 @@ export default function FileTable({ files, loading, apiBase, onRefresh, onDelete
           </div>
 
           <span className="metaDim tableSummary">
-            {copyMessage || `${rangeStart}-${rangeEnd} of ${filteredFiles.length}`}
+            {copyMessage ||
+              `${rangeStart}-${rangeEnd} of ${filteredFiles.length}`}
           </span>
         </div>
 
