@@ -1,6 +1,7 @@
 const express = require("express");
 const multer = require("multer");
 const cors = require("cors");
+const crypto = require("crypto");
 const path = require("path");
 const fs = require("fs");
 require("dotenv").config();
@@ -15,6 +16,7 @@ const MAX_FILES_PER_UPLOAD = 20;
 const MAX_BASE_NAME_LENGTH = 120;
 const MAX_EXT_LENGTH = 20;
 const STATIC_CACHE_MAX_AGE = process.env.STATIC_CACHE_MAX_AGE || "1h";
+const PARTIAL_UPLOAD_SUFFIX = ".part";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "Backup";
 if (!fs.existsSync(UPLOAD_DIR)) {
@@ -65,13 +67,49 @@ const ensureUniqueName = (directory, initialName) => {
   return nextName;
 };
 
+const createTempUploadName = (finalName) => {
+  return `${Date.now()}-${crypto.randomUUID()}-${finalName}${PARTIAL_UPLOAD_SUFFIX}`;
+};
+
+const rememberTempUploadPath = (req, tempPath) => {
+  if (!req.tempUploadPaths) req.tempUploadPaths = new Set();
+  req.tempUploadPaths.add(tempPath);
+};
+
+const forgetTempUploadPath = (req, tempPath) => {
+  req.tempUploadPaths?.delete(tempPath);
+};
+
+const cleanupTempUploadPaths = async (req) => {
+  const tempPaths = Array.from(req.tempUploadPaths || []);
+  await Promise.all(
+    tempPaths.map(async (tempPath) => {
+      try {
+        await fs.promises.unlink(tempPath);
+      } catch (err) {
+        if (err.code !== "ENOENT") {
+          console.error("Failed to remove partial upload:", tempPath, err);
+        }
+      } finally {
+        forgetTempUploadPath(req, tempPath);
+      }
+    })
+  );
+};
+
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-  filename: (_req, file, cb) => {
+  filename: (req, file, cb) => {
     const cleanName = sanitizeUploadedName(file.originalname);
-    const uniqueName = ensureUniqueName(UPLOAD_DIR, cleanName);
-    cb(null, uniqueName);
+    const finalName = ensureUniqueName(UPLOAD_DIR, cleanName);
+    const tempName = createTempUploadName(finalName);
+    const tempPath = path.join(UPLOAD_DIR, tempName);
+
+    file.finalFilename = finalName;
+    rememberTempUploadPath(req, tempPath);
+
+    cb(null, tempName);
   },
 });
 
@@ -85,8 +123,22 @@ const upload = multer({
 
 // Upload endpoint: saves files into UPLOAD_DIR
 app.post("/upload", (req, res) => {
-  upload.array("files", MAX_FILES_PER_UPLOAD)(req, res, (err) => {
+  let requestAborted = false;
+  req.on("aborted", () => {
+    requestAborted = true;
+    cleanupTempUploadPaths(req).catch((cleanupErr) => {
+      console.error("Failed to clean aborted upload:", cleanupErr);
+    });
+  });
+
+  upload.array("files", MAX_FILES_PER_UPLOAD)(req, res, async (err) => {
+    if (requestAborted) {
+      await cleanupTempUploadPaths(req);
+      return;
+    }
+
     if (err instanceof multer.MulterError) {
+      await cleanupTempUploadPaths(req);
       if (err.code === "LIMIT_FILE_SIZE") {
         return res.status(413).json({
           message: `File too large. Max allowed size is ${MAX_FILE_SIZE_GB} GB per file.`,
@@ -103,44 +155,69 @@ app.post("/upload", (req, res) => {
     }
 
     if (err) {
+      await cleanupTempUploadPaths(req);
       return res.status(500).json({ message: "Upload failed due to a server error." });
     }
 
     if (!req.files || req.files.length === 0) {
+      await cleanupTempUploadPaths(req);
       return res.status(400).json({ message: "No file inserted" });
     }
 
-    const files = req.files.map((f) => ({
-      filename: f.filename,
-      originalname: f.originalname,
-      size: f.size,
-      url: `/files/${f.filename}`,
-    }));
+    try {
+      const files = [];
 
-    return res.status(200).json({
-      message: "Files uploaded successfully",
-      count: files.length,
-      files,
-    });
+      for (const file of req.files) {
+        const tempPath = path.join(UPLOAD_DIR, file.filename);
+        const finalName = file.finalFilename || sanitizeUploadedName(file.originalname);
+        const finalPath = path.join(UPLOAD_DIR, finalName);
+
+        await fs.promises.rename(tempPath, finalPath);
+        forgetTempUploadPath(req, tempPath);
+
+        files.push({
+          filename: finalName,
+          originalname: file.originalname,
+          size: file.size,
+          url: `/files/${finalName}`,
+        });
+      }
+
+      return res.status(200).json({
+        message: "Files uploaded successfully",
+        count: files.length,
+        files,
+      });
+    } catch (renameErr) {
+      console.error("Failed to finalize upload:", renameErr);
+      await cleanupTempUploadPaths(req);
+      return res.status(500).json({ message: "Upload failed while finalizing the file." });
+    }
   });
 });
 
 // List files
 app.get("/backup/files", (_req, res) => {
   try {
-    const names = fs.readdirSync(UPLOAD_DIR);
+    const names = fs
+      .readdirSync(UPLOAD_DIR)
+      .filter((name) => !name.endsWith(PARTIAL_UPLOAD_SUFFIX));
 
-    const files = names.map((name) => {
-      const fullPath = path.join(UPLOAD_DIR, name);
-      const stat = fs.statSync(fullPath);
+    const files = names
+      .map((name) => {
+        const fullPath = path.join(UPLOAD_DIR, name);
+        const stat = fs.statSync(fullPath);
 
-      return {
-        filename: name,
+        if (!stat.isFile()) return null;
+
+        return {
+          filename: name,
         size: stat.size,
         modified: stat.mtime,
         url: `/files/${name}`,
       };
-    });
+      })
+      .filter(Boolean);
 
     res.json({ count: files.length, files });
   } catch (_err) {
