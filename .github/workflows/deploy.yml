@@ -12,8 +12,12 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Deploy with Docker
+      - name: Deploy from server checkout
         run: |
-          docker compose down
-          docker compose up -d --build
+          test -f /opt/apps/simplebackup/.env
+          git -C /opt/apps/simplebackup fetch origin main
+          git -C /opt/apps/simplebackup checkout main
+          git -C /opt/apps/simplebackup pull --ff-only origin main
+          docker compose -f /opt/apps/simplebackup/docker-compose.yml --env-file /opt/apps/simplebackup/.env down
+          docker compose -f /opt/apps/simplebackup/docker-compose.yml --env-file /opt/apps/simplebackup/.env up -d --build
           docker image prune -f
