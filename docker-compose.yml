@@ -4,7 +4,6 @@ services:
   api:
     build:
       context: ./api
-    container_name: backup-api
     restart: unless-stopped
     environment:
       HOST: 0.0.0.0
@@ -18,7 +17,6 @@ services:
   frontend:
     build:
       context: ./frontend
-    container_name: backup-frontend
     restart: unless-stopped
     depends_on:
       - api

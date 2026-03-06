@@ -9,7 +9,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const MAX_FILE_SIZE_GB = 10;
+const MAX_FILE_SIZE_GB = 30;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_GB * 1024 * 1024 * 1024;
 const MAX_FILES_PER_UPLOAD = 20;
 const MAX_BASE_NAME_LENGTH = 120;
