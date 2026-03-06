@@ -11,9 +11,9 @@ services:
       PORT: 4000
       UPLOAD_DIR: /data/uploads
     volumes:
-      - /home/server/Backup:/data/uploads
+      - ${BACKUP_PATH:-./uploads}:/data/uploads
     ports:
-      - "4000:4000"
+      - "${API_BIND:-127.0.0.1:4000:4000}"
 
   frontend:
     build:
@@ -23,4 +23,4 @@ services:
     depends_on:
       - api
     ports:
-      - "8080:80"
+      - "${FRONTEND_BIND:-127.0.0.1:8080:80}"
