@@ -9,15 +9,18 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Deploy from server checkout
+      - name: Deploy application
         run: |
+          set -e
+
           test -f /opt/apps/simplebackup/.env
-          git -C /opt/apps/simplebackup fetch origin main
-          git -C /opt/apps/simplebackup checkout main
-          git -C /opt/apps/simplebackup pull --ff-only origin main
-          docker compose -f /opt/apps/simplebackup/docker-compose.yml --env-file /opt/apps/simplebackup/.env down
-          docker compose -f /opt/apps/simplebackup/docker-compose.yml --env-file /opt/apps/simplebackup/.env up -d --build
+
+          cd /opt/apps/simplebackup
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+
+          docker compose --env-file .env down --remove-orphans
+          docker compose --env-file .env up -d --build
+
           docker image prune -f
