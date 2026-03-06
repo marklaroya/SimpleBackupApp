@@ -78,6 +78,7 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
   const [isDragging, setIsDragging] = useState(false);
   const [progress, setProgress] = useState({
     active: false,
+    phase: "uploading",
     percent: 0,
     loadedBytes: 0,
     totalBytes: 0,
@@ -187,6 +188,7 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
       const percent = expectedTotalBytes > 0 ? Math.round((safeLoadedBytes / expectedTotalBytes) * 100) : 0;
       setProgress({
         active: true,
+        phase: "uploading",
         percent,
         loadedBytes: safeLoadedBytes,
         totalBytes: expectedTotalBytes,
@@ -306,6 +308,13 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
 
         if (abortController.signal.aborted) break;
 
+        setProgress((prev) => ({
+          ...prev,
+          active: true,
+          phase: "finalizing",
+        }));
+        onStatus?.(`Finalizing ${file.name} on the server...`);
+
         await axios.post(
           `${apiBase}/upload/complete`,
           { uploadId: session.uploadId },
@@ -384,6 +393,7 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
 
       <UploadProgress
         active={progress.active}
+        phase={progress.phase}
         percent={progress.percent}
         loadedBytes={progress.loadedBytes}
         totalBytes={progress.totalBytes || totalBytes}

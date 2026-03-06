@@ -8,27 +8,37 @@ const formatSize = (bytes) => {
   return `${gb.toFixed(2)} GB`;
 };
 
-export default function UploadProgress({ active, percent, loadedBytes, totalBytes }) {
+export default function UploadProgress({
+  active,
+  percent,
+  loadedBytes,
+  totalBytes,
+  phase = "uploading",
+}) {
   if (!active) return null;
 
   const clampedPercent = Math.max(0, Math.min(100, Number(percent) || 0));
+  const displayPercent =
+    phase === "finalizing" && clampedPercent >= 100 ? 99 : clampedPercent;
   const hasTotal = Number.isFinite(totalBytes) && totalBytes > 0;
+  const label = phase === "finalizing" ? "Finalizing on server" : "Uploading";
+  const metaText =
+    phase === "finalizing"
+      ? "All chunks uploaded. Server is assembling the final file."
+      : `${formatSize(loadedBytes)}${hasTotal ? ` / ${formatSize(totalBytes)}` : ""}`;
 
   return (
     <div className="uploadProgress" role="status" aria-live="polite">
       <div className="uploadProgressTop">
-        <span className="uploadProgressLabel">Uploading</span>
-        <span className="uploadProgressPercent">{clampedPercent}%</span>
+        <span className="uploadProgressLabel">{label}</span>
+        <span className="uploadProgressPercent">{displayPercent}%</span>
       </div>
 
       <div className="uploadProgressTrack" aria-hidden="true">
-        <div className="uploadProgressFill" style={{ width: `${clampedPercent}%` }} />
+        <div className="uploadProgressFill" style={{ width: `${displayPercent}%` }} />
       </div>
 
-      <div className="uploadProgressMeta">
-        {formatSize(loadedBytes)}
-        {hasTotal ? ` / ${formatSize(totalBytes)}` : ""}
-      </div>
+      <div className="uploadProgressMeta">{metaText}</div>
     </div>
   );
 }
