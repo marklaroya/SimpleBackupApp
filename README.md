@@ -71,5 +71,10 @@ If exposed to the internet, improvements should include:
 ## UI
 ![alt text](image.png)
 
+## Deployment Notes
+
+This app is deployed on a home server using Docker Compose and a self-hosted GitHub Actions runner.
+
+
 ## 👨‍💻 Author
 Mark Lester Laroya
