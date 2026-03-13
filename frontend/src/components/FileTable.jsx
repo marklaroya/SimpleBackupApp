@@ -323,10 +323,10 @@ export default function FileTable({
       ) : (
         <div className="recentTable">
           <div className="recentTableHead recentTableGrid">
-            <span>File</span>
+            <span>Name</span>
             <span>Type</span>
             <span>Size</span>
-            <span>Date Modified</span>
+            <span>Modified</span>
             <span>Actions</span>
           </div>
 
@@ -357,22 +357,22 @@ export default function FileTable({
 
                   <div className="recentCell">
                     <span className="mobileLabel">Type</span>
-                    <span className="fileCategoryPill">{category}</span>
+                    <span className="fileTypeTag">{category}</span>
                   </div>
 
                   <div className="recentCell">
                     <span className="mobileLabel">Size</span>
-                    <span className="tableCellMeta">{formatSize(file.size)}</span>
+                    <span className="tableCellValue">{formatSize(file.size)}</span>
                   </div>
 
                   <div className="recentCell">
-                    <span className="mobileLabel">Date Modified</span>
+                    <span className="mobileLabel">Modified</span>
                     <span className="tableCellMeta">{formatDate(file.modified)}</span>
                   </div>
 
                   <div className="recentActions">
                     <a
-                      className="miniBtn miniBtnStrong"
+                      className="recentActionPrimary"
                       href={absoluteUrl}
                       target="_blank"
                       rel="noreferrer"
@@ -381,14 +381,14 @@ export default function FileTable({
                     </a>
                     <button
                       type="button"
-                      className="miniBtn"
+                      className="recentActionSecondary"
                       onClick={() => copyLink(absoluteUrl)}
                     >
-                      Copy Link
+                      Copy
                     </button>
                     <button
                       type="button"
-                      className="miniBtn miniBtnDanger"
+                      className="recentActionSecondary recentActionDanger"
                       onClick={() => deleteFile(file, uiName)}
                       disabled={isDeleting}
                     >

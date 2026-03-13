@@ -602,16 +602,16 @@ button {
 
 .recentTableGrid {
   display: grid;
-  grid-template-columns: minmax(0, 2.3fr) minmax(120px, 0.9fr) minmax(110px, 0.8fr) minmax(170px, 1fr) minmax(210px, 1.15fr);
-  gap: 14px;
+  grid-template-columns: minmax(0, 2.6fr) minmax(96px, 0.72fr) minmax(92px, 0.72fr) minmax(150px, 0.96fr) minmax(170px, 0.92fr);
+  gap: 18px;
   align-items: center;
 }
 
 .recentTableHead {
-  padding: 14px 18px;
+  padding: 12px 18px;
   background: var(--table-head);
   color: var(--text-soft);
-  font: 700 0.72rem/1 "JetBrains Mono", monospace;
+  font: 700 0.68rem/1 "JetBrains Mono", monospace;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -621,37 +621,42 @@ button {
 }
 
 .recentTableRow {
-  padding: 16px 18px;
+  padding: 11px 18px;
   border-top: 1px solid var(--line-soft);
+  transition: background 160ms ease;
+}
+
+.recentTableRow:hover {
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .recentFileCell {
   min-width: 0;
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-columns: 40px minmax(0, 1fr);
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 .fileBadge {
-  width: 48px;
-  height: 48px;
-  border-radius: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
   background: var(--field);
   color: var(--text-muted);
-  font: 700 0.68rem/1 "JetBrains Mono", monospace;
+  font: 700 0.62rem/1 "JetBrains Mono", monospace;
 }
 
 .recentMeta {
   min-width: 0;
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .recentName {
-  font: 700 0.98rem/1.2 "Manrope", sans-serif;
+  font: 700 0.95rem/1.18 "Manrope", sans-serif;
   letter-spacing: -0.02em;
 }
 
@@ -659,11 +664,13 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 0.76rem;
 }
 
 .recentCell {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .mobileLabel {
@@ -674,17 +681,18 @@ button {
   text-transform: uppercase;
 }
 
-.fileCategoryPill {
-  min-height: 28px;
-  padding: 0 10px;
+.fileTypeTag {
+  min-height: 22px;
+  padding: 0 8px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: fit-content;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font: 700 0.68rem/1 "JetBrains Mono", monospace;
+  background: rgba(107, 140, 255, 0.1);
+  color: var(--text-soft);
+  font: 700 0.62rem/1 "JetBrains Mono", monospace;
+  letter-spacing: 0.03em;
 }
 
 .tableEmpty {
@@ -813,6 +821,58 @@ button {
   font-size: 0.9rem;
 }
 
+.tableCellValue {
+  color: var(--text);
+  font: 700 0.8rem/1.2 "JetBrains Mono", monospace;
+}
+
+.recentActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.recentActionPrimary,
+.recentActionSecondary {
+  min-height: 30px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: background 160ms ease, color 160ms ease, opacity 160ms ease;
+}
+
+.recentActionPrimary {
+  padding: 0 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: 700 0.74rem/1 "Manrope", sans-serif;
+}
+
+.recentActionPrimary:hover {
+  background: rgba(107, 140, 255, 0.18);
+}
+
+.recentActionSecondary {
+  padding: 0 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font: 600 0.74rem/1 "Manrope", sans-serif;
+}
+
+.recentActionSecondary:hover:not(:disabled) {
+  color: var(--text);
+  background: rgba(22, 50, 79, 0.05);
+}
+
+.recentActionDanger:hover:not(:disabled) {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
 .statusSuccess {
   color: var(--success);
 }
@@ -881,6 +941,28 @@ html[data-theme="dark"] .brandMark {
 html[data-theme="dark"] .btnAccent,
 html[data-theme="dark"] .miniBtnStrong {
   color: #182131;
+}
+
+html[data-theme="dark"] .recentTableRow:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+html[data-theme="dark"] .fileTypeTag {
+  background: rgba(167, 182, 255, 0.16);
+  color: var(--text-soft);
+}
+
+html[data-theme="dark"] .recentActionPrimary {
+  background: rgba(167, 182, 255, 0.16);
+  color: var(--accent);
+}
+
+html[data-theme="dark"] .recentActionPrimary:hover {
+  background: rgba(167, 182, 255, 0.24);
+}
+
+html[data-theme="dark"] .recentActionSecondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 @media (max-width: 1380px) {
