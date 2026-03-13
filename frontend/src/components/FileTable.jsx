@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 
+const PAGE_SIZES = [8, 16, 32];
+
 const CATEGORY_GROUPS = [
+  {
+    label: "All",
+    exts: [],
+  },
   {
     label: "Documents",
     exts: [
@@ -23,53 +29,20 @@ const CATEGORY_GROUPS = [
     exts: ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "heic", "avif"],
   },
   {
-    label: "Video",
-    exts: ["mp4", "mov", "avi", "mkv", "wmv", "webm", "m4v"],
-  },
-  {
     label: "Audio",
     exts: ["mp3", "wav", "m4a", "aac", "flac", "ogg"],
   },
   {
-    label: "Archives",
-    exts: ["zip", "rar", "7z", "tar", "gz", "bz2", "xz", "iso"],
+    label: "Videos",
+    exts: ["mp4", "mov", "avi", "mkv", "wmv", "webm", "m4v"],
   },
   {
-    label: "Code",
-    exts: [
-      "js",
-      "jsx",
-      "ts",
-      "tsx",
-      "py",
-      "java",
-      "c",
-      "cpp",
-      "cs",
-      "go",
-      "rs",
-      "php",
-      "html",
-      "css",
-      "json",
-      "yml",
-      "yaml",
-    ],
+    label: "Others",
+    exts: [],
   },
 ];
 
-const CATEGORY_ORDER = [
-  "All",
-  "Documents",
-  "Images",
-  "Video",
-  "Audio",
-  "Archives",
-  "Code",
-  "Other",
-];
-
-const PAGE_SIZES = [8, 16, 32];
+const LEGACY_PREFIX_RE = /^(\d{12,})-(.+)$/;
 
 const formatSize = (bytes) => {
   if (!bytes) return "0 B";
@@ -93,22 +66,18 @@ const formatDate = (value) => {
 
 const getExtension = (filename) => {
   if (!filename || !filename.includes(".")) return "FILE";
-  const ext = filename.split(".").pop();
-  return (ext || "FILE").slice(0, 4).toUpperCase();
+  return ((filename.split(".").pop() || "FILE").slice(0, 4)).toUpperCase();
 };
 
 const inferCategory = (filename) => {
-  if (!filename || !filename.includes(".")) return "Other";
+  if (!filename || !filename.includes(".")) return "Others";
   const ext = (filename.split(".").pop() || "").toLowerCase();
 
-  for (const group of CATEGORY_GROUPS) {
-    if (group.exts.includes(ext)) return group.label;
-  }
-
-  return "Other";
+  const group = CATEGORY_GROUPS.find(
+    (item) => item.label !== "All" && item.label !== "Others" && item.exts.includes(ext)
+  );
+  return group ? group.label : "Others";
 };
-
-const LEGACY_PREFIX_RE = /^(\d{12,})-(.+)$/;
 
 const parseLegacyName = (filename) => {
   if (!filename) {
@@ -141,36 +110,56 @@ export default function FileTable({
   apiBase,
   onRefresh,
   onDelete,
+  searchQuery = "",
 }) {
-  const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("newest");
-  const [copyMessage, setCopyMessage] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
   const [page, setPage] = useState(1);
+  const [copyMessage, setCopyMessage] = useState("");
   const [deletingFilename, setDeletingFilename] = useState("");
 
-  const categoryCounts = useMemo(() => {
-    const counts = Object.fromEntries(CATEGORY_ORDER.map((name) => [name, 0]));
-    counts.All = files.length;
+  const displayNameByFilename = useMemo(() => {
+    const groups = new Map();
 
     files.forEach((file) => {
-      const category = inferCategory(file.filename);
-      counts[category] = (counts[category] || 0) + 1;
+      const parsed = parseLegacyName(file.filename);
+      if (!groups.has(parsed.cleaned)) groups.set(parsed.cleaned, []);
+      groups.get(parsed.cleaned).push(file);
     });
 
-    return counts;
+    const labels = new Map();
+
+    groups.forEach((groupFiles, cleaned) => {
+      if (groupFiles.length === 1) {
+        labels.set(groupFiles[0].filename, cleaned);
+        return;
+      }
+
+      const sortedGroup = [...groupFiles].sort((a, b) => {
+        const timeA = new Date(a.modified || 0).getTime();
+        const timeB = new Date(b.modified || 0).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+        return (a.filename || "").localeCompare(b.filename || "");
+      });
+
+      sortedGroup.forEach((file, index) => {
+        labels.set(file.filename, addDuplicateIndex(cleaned, index + 1));
+      });
+    });
+
+    return labels;
   }, [files]);
 
   const filteredFiles = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
+    const normalized = searchQuery.trim().toLowerCase();
 
     const filtered = files.filter((file) => {
       const matchesQuery =
         !normalized || (file.filename || "").toLowerCase().includes(normalized);
+      const category = inferCategory(file.filename);
       const matchesCategory =
-        activeCategory === "All" ||
-        inferCategory(file.filename) === activeCategory;
+        activeCategory === "All" || category === activeCategory;
       return matchesQuery && matchesCategory;
     });
 
@@ -193,56 +182,21 @@ export default function FileTable({
     });
 
     return filtered;
-  }, [files, query, sortBy, activeCategory]);
+  }, [activeCategory, files, searchQuery, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filteredFiles.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const displayNameByFilename = useMemo(() => {
-    const groups = new Map();
-
-    files.forEach((file) => {
-      const parsed = parseLegacyName(file.filename);
-      if (!groups.has(parsed.cleaned)) groups.set(parsed.cleaned, []);
-      groups.get(parsed.cleaned).push(file);
-    });
-
-    const labels = new Map();
-
-    groups.forEach((groupFiles, cleaned) => {
-      if (groupFiles.length === 1) {
-        labels.set(groupFiles[0].filename, cleaned);
-        return;
-      }
-
-      // Stable ordering so duplicate labels do not jump when user changes sort/filter.
-      const sortedGroup = [...groupFiles].sort((a, b) => {
-        const timeA = new Date(a.modified || 0).getTime();
-        const timeB = new Date(b.modified || 0).getTime();
-        if (timeA !== timeB) return timeA - timeB;
-        return (a.filename || "").localeCompare(b.filename || "");
-      });
-
-      sortedGroup.forEach((file, idx) => {
-        labels.set(file.filename, addDuplicateIndex(cleaned, idx + 1));
-      });
-    });
-
-    return labels;
-  }, [files]);
+  const startIndex = (currentPage - 1) * pageSize;
+  const visibleFiles = filteredFiles.slice(startIndex, startIndex + pageSize);
+  const rangeStart = filteredFiles.length === 0 ? 0 : startIndex + 1;
+  const rangeEnd = Math.min(filteredFiles.length, startIndex + visibleFiles.length);
+  const hasActiveFilters = searchQuery.trim().length > 0 || activeCategory !== "All";
 
   useEffect(() => {
     if (!copyMessage) return;
     const timeout = setTimeout(() => setCopyMessage(""), 2200);
     return () => clearTimeout(timeout);
   }, [copyMessage]);
-
-  const startIndex = (currentPage - 1) * pageSize;
-  const visibleFiles = filteredFiles.slice(startIndex, startIndex + pageSize);
-  const rangeStart = filteredFiles.length === 0 ? 0 : startIndex + 1;
-  const rangeEnd = Math.min(
-    startIndex + visibleFiles.length,
-    filteredFiles.length,
-  );
 
   const copyLink = async (url) => {
     if (!navigator?.clipboard) {
@@ -266,10 +220,9 @@ export default function FileTable({
     try {
       let res = await fetch(
         `${apiBase}/backup/files/${encodeURIComponent(file.filename)}`,
-        { method: "DELETE" },
+        { method: "DELETE" }
       );
 
-      // Fallback for environments where DELETE is blocked by proxy config.
       if (res.status === 404 || res.status === 405) {
         res = await fetch(`${apiBase}/backup/files/delete`, {
           method: "POST",
@@ -277,46 +230,53 @@ export default function FileTable({
           body: JSON.stringify({ filename: file.filename }),
         });
       }
+
       const data = await res.json().catch(() => ({}));
-      if (!res.ok)
+      if (!res.ok) {
         throw new Error(data.message || `Delete failed (${res.status})`);
+      }
 
       setCopyMessage("File deleted.");
       await onDelete?.(file.filename, data.message);
-    } catch (e) {
-      setCopyMessage(e.message || "Delete failed.");
+    } catch (error) {
+      setCopyMessage(error.message || "Delete failed.");
     } finally {
       setDeletingFilename("");
     }
   };
 
-  const hasActiveFilters = query.trim().length > 0 || activeCategory !== "All";
-
   return (
-    <div className="tableBox tableBoxV2">
-      <div className="tableControlsSticky">
-        <div className="sectionHead">
-          <div className="sectionTitle">Stored Files</div>
-          <div className="sectionMeta">{files.length} total</div>
+    <section className="dashboardPanel recentFilesSection">
+      <div className="filesHead">
+        <div>
+          <h2 className="sectionTitle">Recent Files</h2>
+          <p className="sectionText">
+            {filteredFiles.length} file(s) in view
+            {searchQuery.trim() ? ` for "${searchQuery.trim()}"` : ""}.
+          </p>
         </div>
 
-        <div className="tableTools tableToolsV2">
-          <input
-            className="fieldInput"
-            type="search"
-            placeholder="Search file names"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
+        <div className="filesHeadControls">
+          <select
+            className="fieldSelect"
+            value={activeCategory}
+            onChange={(event) => {
+              setActiveCategory(event.target.value);
               setPage(1);
             }}
-          />
+          >
+            {CATEGORY_GROUPS.map((group) => (
+              <option key={group.label} value={group.label}>
+                {group.label}
+              </option>
+            ))}
+          </select>
 
           <select
             className="fieldSelect"
             value={sortBy}
-            onChange={(e) => {
-              setSortBy(e.target.value);
+            onChange={(event) => {
+              setSortBy(event.target.value);
               setPage(1);
             }}
           >
@@ -329,10 +289,10 @@ export default function FileTable({
           </select>
 
           <select
-            className="fieldSelect fieldSelectCompact"
+            className="fieldSelect"
             value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value));
+            onChange={(event) => {
+              setPageSize(Number(event.target.value));
               setPage(1);
             }}
           >
@@ -342,142 +302,133 @@ export default function FileTable({
               </option>
             ))}
           </select>
-        </div>
 
-        <div className="categoryRow">
-          {CATEGORY_ORDER.map((category) => (
-            <button
-              key={category}
-              type="button"
-              className={`categoryChip ${activeCategory === category ? "isActive" : ""}`}
-              onClick={() => {
-                setActiveCategory(category);
-                setPage(1);
-              }}
-            >
-              <span>{category}</span>
-              <span className="chipCount">{categoryCounts[category] || 0}</span>
-            </button>
-          ))}
+          <button
+            type="button"
+            className="controlButton controlButtonQuiet"
+            onClick={onRefresh}
+            disabled={loading}
+          >
+            {loading ? "Refreshing" : "Refresh"}
+          </button>
         </div>
-      </div>
-
-      <div className="tableHeader tableHeaderV2">
-        <span>File</span>
-        <span>Actions</span>
       </div>
 
       {loading ? (
         <div className="tableEmpty">Loading files...</div>
       ) : visibleFiles.length === 0 ? (
         <div className="tableEmpty">
-          {hasActiveFilters
-            ? "No matching files found."
-            : "No files uploaded yet."}
+          {hasActiveFilters ? "No matching files found." : "No files uploaded yet."}
         </div>
       ) : (
-        <div className="rows rowsV2">
-          {visibleFiles.map((file) => {
-            const absoluteUrl = `${apiBase}${file.url}`;
-            const category = inferCategory(file.filename);
-            const parsedName = parseLegacyName(file.filename);
-            const uiName =
-              displayNameByFilename.get(file.filename) || parsedName.cleaned;
-            const isDeleting = deletingFilename === file.filename;
+        <div className="recentTable">
+          <div className="recentTableHead recentTableGrid">
+            <span>File</span>
+            <span>Type</span>
+            <span>Size</span>
+            <span>Date Modified</span>
+            <span>Actions</span>
+          </div>
 
-            return (
-              <div className="row rowV2" key={file.filename}>
-                <div className="rowLead">
-                  <span className="fileBadge">
-                    {getExtension(file.filename)}
-                  </span>
+          <div className="recentTableBody">
+            {visibleFiles.map((file) => {
+              const absoluteUrl = `${apiBase}${file.url}`;
+              const category = inferCategory(file.filename);
+              const parsedName = parseLegacyName(file.filename);
+              const uiName =
+                displayNameByFilename.get(file.filename) || parsedName.cleaned;
+              const isDeleting = deletingFilename === file.filename;
 
-                  <div className="fileMeta">
-                    <div className="fileName" title={file.filename}>
-                      {uiName}
-                    </div>
-
-                    <div className="fileSubRow fileSubRowV2">
-                      <span className="fileCategory">{category}</span>
-                      <span className="fileSub">
-                        {formatDate(file.modified)}
+              return (
+                <div className="recentTableRow recentTableGrid" key={file.filename}>
+                  <div className="recentFileCell">
+                    <span className="fileBadge">{getExtension(file.filename)}</span>
+                    <div className="recentMeta">
+                      <span className="recentName" title={file.filename}>
+                        {uiName}
                       </span>
-                      <span className="fileSub">{formatSize(file.size)}</span>
+                      <span className="recentSecondary">
+                        {parsedName.isLegacy
+                          ? `Imported version ${parsedName.legacyId}`
+                          : "Stored in backup vault"}
+                      </span>
                     </div>
                   </div>
-                </div>
 
-                <div className="rowActions rowActionsV2">
-                  <a
-                    className="miniBtn miniBtnStrong"
-                    href={absoluteUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Download
-                  </a>
-                  <button
-                    type="button"
-                    className="miniBtn"
-                    onClick={() => copyLink(absoluteUrl)}
-                  >
-                    Copy
-                  </button>
-                  <button
-                    type="button"
-                    className="miniBtn miniBtnDanger"
-                    onClick={() => deleteFile(file, uiName)}
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? "Deleting..." : "Delete"}
-                  </button>
+                  <div className="recentCell">
+                    <span className="mobileLabel">Type</span>
+                    <span className="fileCategoryPill">{category}</span>
+                  </div>
+
+                  <div className="recentCell">
+                    <span className="mobileLabel">Size</span>
+                    <span className="tableCellMeta">{formatSize(file.size)}</span>
+                  </div>
+
+                  <div className="recentCell">
+                    <span className="mobileLabel">Date Modified</span>
+                    <span className="tableCellMeta">{formatDate(file.modified)}</span>
+                  </div>
+
+                  <div className="recentActions">
+                    <a
+                      className="miniBtn miniBtnStrong"
+                      href={absoluteUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Download
+                    </a>
+                    <button
+                      type="button"
+                      className="miniBtn"
+                      onClick={() => copyLink(absoluteUrl)}
+                    >
+                      Copy Link
+                    </button>
+                    <button
+                      type="button"
+                      className="miniBtn miniBtnDanger"
+                      onClick={() => deleteFile(file, uiName)}
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? "Deleting" : "Delete"}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 
-      <div className="tableFooter tableFooterV2">
-        <div className="tableFooterMain">
-          <div className="pager">
-            <button
-              className="btn btnGhost"
-              type="button"
-              onClick={() =>
-                setPage((p) => Math.max(1, Math.min(p, totalPages) - 1))
-              }
-              disabled={currentPage <= 1}
-            >
-              Prev
-            </button>
-            <span className="metaDim">
-              Page {currentPage} / {totalPages}
-            </span>
-            <button
-              className="btn btnGhost"
-              type="button"
-              onClick={() =>
-                setPage((p) =>
-                  Math.min(totalPages, Math.min(p, totalPages) + 1),
-                )
-              }
-              disabled={currentPage >= totalPages}
-            >
-              Next
-            </button>
-          </div>
-
-          <span className="metaDim tableSummary">
-            {copyMessage ||
-              `${rangeStart}-${rangeEnd} of ${filteredFiles.length}`}
+      <div className="filesFooter">
+        <div className="pager">
+          <button
+            className="btn btnGhost"
+            type="button"
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            disabled={currentPage <= 1}
+          >
+            Prev
+          </button>
+          <span className="metaDim">
+            Page {currentPage} / {totalPages}
           </span>
+          <button
+            className="btn btnGhost"
+            type="button"
+            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+            disabled={currentPage >= totalPages}
+          >
+            Next
+          </button>
         </div>
 
-        <button className="btn btnGhost" onClick={onRefresh} disabled={loading}>
-          {loading ? "Refreshing..." : "Refresh"}
-        </button>
+        <span className="metaDim">
+          {copyMessage || `${rangeStart}-${rangeEnd} of ${filteredFiles.length} shown`}
+        </span>
       </div>
-    </div>
+    </section>
   );
 }

@@ -107,29 +107,29 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
     onStatus?.("");
   };
 
-  const onPick = (e) => {
-    const list = Array.from(e.target.files || []);
+  const onPick = (event) => {
+    const list = Array.from(event.target.files || []);
     setFiles(list, true);
     if (inputRef.current) inputRef.current.value = "";
   };
 
-  const onDragOver = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const onDragOver = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     setIsDragging(true);
   };
 
-  const onDragLeave = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const onDragLeave = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     setIsDragging(false);
   };
 
-  const onDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const onDrop = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     setIsDragging(false);
-    const list = Array.from(e.dataTransfer.files || []);
+    const list = Array.from(event.dataTransfer.files || []);
     setFiles(list, true);
   };
 
@@ -153,7 +153,7 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
       try {
         await axios.delete(`${apiBase}/upload/${activeSession.uploadId}`);
       } catch {
-        // Ignore cleanup failures on cancel; the session can still be retried or cleaned up later.
+        // Cleanup can be retried later.
       }
       if (activeSession.file) {
         removeStoredUploadSession(activeSession.file);
@@ -185,7 +185,11 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
 
     const updateProgress = (loadedBytes) => {
       const safeLoadedBytes = Math.max(0, Math.min(expectedTotalBytes, loadedBytes));
-      const percent = expectedTotalBytes > 0 ? Math.round((safeLoadedBytes / expectedTotalBytes) * 100) : 0;
+      const percent =
+        expectedTotalBytes > 0
+          ? Math.round((safeLoadedBytes / expectedTotalBytes) * 100)
+          : 0;
+
       setProgress({
         active: true,
         phase: "uploading",
@@ -246,8 +250,8 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
           },
           uploadedChunkSet: new Set(status.uploadedChunks || []),
         };
-      } catch (err) {
-        if (err?.response?.status !== 404) throw err;
+      } catch (error) {
+        if (error?.response?.status !== 404) throw error;
         removeStoredUploadSession(file);
 
         const freshSession = await createUploadSession(file);
@@ -332,14 +336,14 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
         onUploaded?.();
         onStatus?.("Upload complete");
       }
-    } catch (e) {
-      const isCanceled = e?.code === "ERR_CANCELED" || e?.name === "CanceledError";
-      const isIncomplete = e?.response?.status === 409;
+    } catch (error) {
+      const isCanceled = error?.code === "ERR_CANCELED" || error?.name === "CanceledError";
+      const isIncomplete = error?.response?.status === 409;
       const message = isCanceled
         ? "Upload canceled."
         : isIncomplete
           ? "Upload interrupted. Retry to resume from the last completed chunk."
-          : e?.response?.data?.message || e?.message || "Upload error";
+          : error?.response?.data?.message || error?.message || "Upload error";
       onStatus?.(message);
     } finally {
       if (uploadAbortRef.current === abortController) {
@@ -352,11 +356,16 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
   };
 
   return (
-    <div className="uploadBox">
-      <div className="sectionHead">
-        <div className="sectionTitle">Upload Files</div>
+    <section className="dashboardPanel uploadSection">
+      <div className="sectionHead uploadSectionHead">
+        <div>
+          <h2 className="sectionTitle">Quick Upload</h2>
+          <p className="sectionText">
+            Add files to your vault with resumable transfer and progress tracking.
+          </p>
+        </div>
         <div className="sectionMeta">
-          {selected.length} file(s) - {formatSize(totalBytes)}
+          {selected.length} file(s) / {formatSize(totalBytes)}
         </div>
       </div>
 
@@ -367,27 +376,35 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
         onDrop={onDrop}
       >
         <div className="dropZoneTitle">
-          {selected.length > 0 ? "Drop more files to add them" : "Drag and drop files here"}
+          {selected.length > 0 ? "Drop more files to add them" : "Drop files here"}
         </div>
-        <div className="dropZoneHint">or use the Select File button</div>
+        <div className="dropZoneHint">or browse directly from this device</div>
       </div>
 
       <div className="uploadRow">
         <label className="btn btnPrimary">
-          Select File(s)
+          Select Files
           <input ref={inputRef} type="file" multiple onChange={onPick} hidden />
         </label>
 
-        <button className="btn btnAccent" onClick={upload} disabled={selected.length === 0 || uploading}>
-          {uploading ? "Uploading..." : "Upload"}
+        <button
+          className="btn btnAccent"
+          onClick={upload}
+          disabled={selected.length === 0 || uploading}
+        >
+          {uploading ? "Uploading" : "Upload"}
         </button>
 
-        <button className="btn btnGhost" onClick={clearSelection} disabled={selected.length === 0 || uploading}>
+        <button
+          className="btn btnGhost"
+          onClick={clearSelection}
+          disabled={selected.length === 0 || uploading}
+        >
           Clear
         </button>
 
         <button className="btn btnGhost" onClick={cancelUpload} disabled={!uploading}>
-          Cancel Upload
+          Cancel
         </button>
       </div>
 
@@ -401,7 +418,7 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
 
       {selected.length > 0 && (
         <div className="selectedList">
-          {selected.slice(0, 8).map((file) => (
+          {selected.slice(0, 6).map((file) => (
             <div className="selectedItem" key={fileKey(file)}>
               <span className="selectedName" title={file.name}>
                 {file.name}
@@ -417,11 +434,12 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
               </button>
             </div>
           ))}
-          {selected.length > 8 && (
-            <div className="selectedMore">+{selected.length - 8} more file(s) selected</div>
+
+          {selected.length > 6 && (
+            <div className="selectedMore">+{selected.length - 6} more file(s) selected</div>
           )}
         </div>
       )}
-    </div>
+    </section>
   );
 }
