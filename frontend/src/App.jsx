@@ -255,8 +255,8 @@ export default function App() {
               BV
             </span>
             <div className="brandMeta">
-              <span className="brandEyebrow">Personal Cloud</span>
-              <span className="brandTitle">Backup Vault</span>
+              <span className="brandEyebrow">Personal</span>
+              <span className="brandTitle">File Storage</span>
             </div>
           </div>
 
@@ -276,9 +276,9 @@ export default function App() {
           </nav>
 
           <div className="sidebarFoot">
-            <span className="sidebarFootLabel">Current plan</span>
-            <strong className="sidebarFootValue">{STORAGE_CAPACITY_GB} GB storage</strong>
-            <span className="sidebarFootHint">{usedPercent}% in use across your vault.</span>
+            <span className="sidebarFootLabel"></span>
+            <strong className="sidebarFootValue">{STORAGE_CAPACITY_GB} GB</strong>
+            <span className="sidebarFootHint">{usedPercent}% in use across your Storage.</span>
           </div>
         </aside>
 
@@ -316,7 +316,7 @@ export default function App() {
               <div className="profileChip">
                 <span className="profileAvatar">ML</span>
                 <div className="profileMeta">
-                  <span className="profileName">My Vault</span>
+                  <span className="profileName">My Storage</span>
                   <span className="profileHint">Private server</span>
                 </div>
               </div>
