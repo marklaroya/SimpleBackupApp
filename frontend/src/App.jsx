@@ -403,7 +403,7 @@ export default function App() {
 
                 <div className="donutSummary">
                   <strong>{formatSize(totalBytes)}</strong>
-                  <span>of {STORAGE_CAPACITY_GB} GB plan</span>
+                  <span>of {STORAGE_CAPACITY_GB} GB</span>
                 </div>
               </div>
 
