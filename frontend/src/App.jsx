@@ -277,7 +277,7 @@ export default function App() {
           </nav>
 
           <div className="sidebarFoot">
-            <span className="sidebarFootLabel">Current Storage</span>
+            <span className="sidebarFootLabel">Current n</span>
             <strong className="sidebarFootValue">{STORAGE_CAPACITY_GB} GB</strong>
             <span className="sidebarFootHint">
               {formatSize(remainingBytes)} free, {usedPercent}% in use.

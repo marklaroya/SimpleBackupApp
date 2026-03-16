@@ -408,9 +408,9 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
     <section className="dashboardPanel uploadSection">
       <div className="sectionHead uploadSectionHead">
         <div>
-          <h2 className="sectionTitle">Quick Upload</h2>
+          <h2 className="sectionTitle">Upload Files</h2>
           <p className="sectionText">
-            Add files to your vault with resumable transfer and progress tracking.
+            Add files to storage.
           </p>
         </div>
         <div className="sectionMeta">
