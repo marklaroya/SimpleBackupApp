@@ -160,6 +160,7 @@ export default function App() {
     0,
     Math.min(100, Math.round((totalBytes / STORAGE_CAPACITY_BYTES) * 100))
   );
+  const remainingBytes = Math.max(0, STORAGE_CAPACITY_BYTES - totalBytes);
 
   const searchMatchCount = useMemo(() => {
     const normalized = searchQuery.trim().toLowerCase();
@@ -276,9 +277,11 @@ export default function App() {
           </nav>
 
           <div className="sidebarFoot">
-            <span className="sidebarFootLabel"></span>
+            <span className="sidebarFootLabel">Current plan</span>
             <strong className="sidebarFootValue">{STORAGE_CAPACITY_GB} GB</strong>
-            <span className="sidebarFootHint">{usedPercent}% in use across your Storage.</span>
+            <span className="sidebarFootHint">
+              {formatSize(remainingBytes)} free, {usedPercent}% in use.
+            </span>
           </div>
         </aside>
 
@@ -337,6 +340,7 @@ export default function App() {
                   <div className="storageSectionMeta">
                     <span className="storageMetaPill">{files.length} files</span>
                     <span className="storageMetaPill">{formatSize(totalBytes)} used</span>
+                    <span className="storageMetaPill">{formatSize(remainingBytes)} free</span>
                   </div>
                 </div>
 
@@ -370,6 +374,10 @@ export default function App() {
                 apiBase={API}
                 onRefresh={loadFiles}
                 searchQuery={searchQuery}
+                onRename={async (_previousFilename, _nextFilename, message) => {
+                  setStatus(message || "File renamed");
+                  await loadFiles();
+                }}
                 onDelete={async (_filename, message) => {
                   setStatus(message || "File deleted");
                   await loadFiles();
@@ -424,6 +432,10 @@ export default function App() {
               </div>
 
               <div className="statsMetaCard">
+                <div className="statsMetaRow">
+                  <span className="statsMetaLabel">Free space</span>
+                  <strong>{formatSize(remainingBytes)}</strong>
+                </div>
                 <div className="statsMetaRow">
                   <span className="statsMetaLabel">Visible now</span>
                   <strong>{searchMatchCount}</strong>

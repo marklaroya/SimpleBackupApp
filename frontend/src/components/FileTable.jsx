@@ -110,6 +110,7 @@ export default function FileTable({
   apiBase,
   onRefresh,
   onDelete,
+  onRename,
   searchQuery = "",
 }) {
   const [sortBy, setSortBy] = useState("newest");
@@ -118,6 +119,7 @@ export default function FileTable({
   const [page, setPage] = useState(1);
   const [copyMessage, setCopyMessage] = useState("");
   const [deletingFilename, setDeletingFilename] = useState("");
+  const [renamingFilename, setRenamingFilename] = useState("");
 
   const displayNameByFilename = useMemo(() => {
     const groups = new Map();
@@ -245,6 +247,38 @@ export default function FileTable({
     }
   };
 
+  const renameFile = async (file, uiName) => {
+    const requestedName = window.prompt("Rename file", uiName);
+    if (requestedName === null) return;
+
+    const trimmedName = requestedName.trim();
+    if (!trimmedName || trimmedName === uiName) return;
+
+    setRenamingFilename(file.filename);
+    try {
+      const res = await fetch(`${apiBase}/backup/files/rename`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: file.filename,
+          nextFilename: trimmedName,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || `Rename failed (${res.status})`);
+      }
+
+      setCopyMessage("File renamed.");
+      await onRename?.(file.filename, data.filename, data.message);
+    } catch (error) {
+      setCopyMessage(error.message || "Rename failed.");
+    } finally {
+      setRenamingFilename("");
+    }
+  };
+
   return (
     <section className="dashboardPanel recentFilesSection">
       <div className="filesHead">
@@ -338,6 +372,7 @@ export default function FileTable({
               const uiName =
                 displayNameByFilename.get(file.filename) || parsedName.cleaned;
               const isDeleting = deletingFilename === file.filename;
+              const isRenaming = renamingFilename === file.filename;
 
               return (
                 <div className="recentTableRow recentTableGrid" key={file.filename}>
@@ -382,7 +417,16 @@ export default function FileTable({
                     <button
                       type="button"
                       className="recentActionSecondary"
+                      onClick={() => renameFile(file, uiName)}
+                      disabled={isDeleting || isRenaming}
+                    >
+                      {isRenaming ? "Renaming" : "Rename"}
+                    </button>
+                    <button
+                      type="button"
+                      className="recentActionSecondary"
                       onClick={() => copyLink(absoluteUrl)}
+                      disabled={isDeleting || isRenaming}
                     >
                       Copy
                     </button>
@@ -390,7 +434,7 @@ export default function FileTable({
                       type="button"
                       className="recentActionSecondary recentActionDanger"
                       onClick={() => deleteFile(file, uiName)}
-                      disabled={isDeleting}
+                      disabled={isDeleting || isRenaming}
                     >
                       {isDeleting ? "Deleting" : "Delete"}
                     </button>

@@ -4,6 +4,8 @@ import UploadProgress from "./UploadProgress.jsx";
 
 const CHUNK_SIZE_BYTES = 8 * 1024 * 1024;
 const UPLOAD_SESSION_STORAGE_KEY = "simplebackup.uploadSessions.v1";
+const MAX_CHUNK_RETRIES = 3;
+const CHUNK_RETRY_DELAY_MS = 800;
 
 const formatSize = (bytes) => {
   if (!bytes) return "0 B";
@@ -70,6 +72,15 @@ const removeStoredUploadSession = (file) => {
 const getChunkByteSize = (fileSize, chunkIndex, chunkSize) => {
   const offset = chunkIndex * chunkSize;
   return Math.max(0, Math.min(chunkSize, fileSize - offset));
+};
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isRetryableChunkError = (error) => {
+  if (!error) return false;
+  if (error.code === "ERR_CANCELED" || error.name === "CanceledError") return false;
+  if (!error.response) return true;
+  return error.response.status >= 500 || error.response.status === 429;
 };
 
 export default function UploadBox({ apiBase, onUploaded, onStatus }) {
@@ -269,6 +280,50 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
     try {
       let completedBatchBytes = 0;
 
+      const uploadChunkWithRetry = async ({
+        file,
+        session,
+        chunkIndex,
+        chunkBlob,
+        currentFileLoaded,
+      }) => {
+        for (let attempt = 1; attempt <= MAX_CHUNK_RETRIES; attempt += 1) {
+          const form = new FormData();
+          form.append("uploadId", session.uploadId);
+          form.append("chunkIndex", `${chunkIndex}`);
+          form.append("chunk", chunkBlob, file.name);
+
+          let inFlightChunkLoaded = 0;
+
+          try {
+            await axios.post(`${apiBase}/upload/chunk`, form, {
+              signal: abortController.signal,
+              onUploadProgress: (event) => {
+                inFlightChunkLoaded = Math.min(event.loaded || 0, chunkBlob.size);
+                updateProgress(completedBatchBytes + currentFileLoaded + inFlightChunkLoaded);
+              },
+            });
+            return;
+          } catch (error) {
+            if (
+              abortController.signal.aborted ||
+              attempt === MAX_CHUNK_RETRIES ||
+              !isRetryableChunkError(error)
+            ) {
+              throw error;
+            }
+
+            const retryDelay = CHUNK_RETRY_DELAY_MS * attempt;
+            onStatus?.(
+              `Connection dipped while uploading ${file.name}. Retrying chunk ${
+                chunkIndex + 1
+              }/${session.totalChunks} (${attempt + 1}/${MAX_CHUNK_RETRIES})...`
+            );
+            await wait(retryDelay);
+          }
+        }
+      };
+
       for (const file of selected) {
         if (abortController.signal.aborted) break;
 
@@ -291,18 +346,12 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
           const chunkStart = chunkIndex * session.chunkSize;
           const chunkEnd = Math.min(chunkStart + session.chunkSize, file.size);
           const chunkBlob = file.slice(chunkStart, chunkEnd);
-          const form = new FormData();
-          form.append("uploadId", session.uploadId);
-          form.append("chunkIndex", `${chunkIndex}`);
-          form.append("chunk", chunkBlob, file.name);
-
-          let inFlightChunkLoaded = 0;
-          await axios.post(`${apiBase}/upload/chunk`, form, {
-            signal: abortController.signal,
-            onUploadProgress: (event) => {
-              inFlightChunkLoaded = Math.min(event.loaded || 0, chunkBlob.size);
-              updateProgress(completedBatchBytes + currentFileLoaded + inFlightChunkLoaded);
-            },
+          await uploadChunkWithRetry({
+            file,
+            session,
+            chunkIndex,
+            chunkBlob,
+            currentFileLoaded,
           });
 
           uploadedChunkSet.add(chunkIndex);

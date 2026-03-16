@@ -136,6 +136,25 @@ const removeChunkUploadDir = async (uploadId) => {
   await fsp.rm(getChunkUploadDir(uploadId), { recursive: true, force: true });
 };
 
+const resolveUploadFilePath = (filename) => {
+  const normalized = (filename || "").trim();
+  if (!normalized) {
+    return { error: "Filename is required." };
+  }
+
+  if (path.basename(normalized) !== normalized) {
+    return { error: "Invalid filename." };
+  }
+
+  const uploadRoot = path.resolve(UPLOAD_DIR);
+  const filePath = path.resolve(uploadRoot, normalized);
+  if (!filePath.startsWith(`${uploadRoot}${path.sep}`)) {
+    return { error: "Invalid file path." };
+  }
+
+  return { normalized, filePath };
+};
+
 const mergeChunkUpload = async (uploadId, targetPath, totalChunks) => {
   await new Promise((resolve, reject) => {
     const writeStream = fs.createWriteStream(targetPath, { flags: "wx" });
@@ -500,20 +519,9 @@ app.get("/backup/files", (_req, res) => {
 // Deleting a File
 const deleteSingleFile = (filename, res) => {
   try {
-    const normalized = (filename || "").trim();
-    if (!normalized) {
-      return res.status(400).json({ message: "Filename is required." });
-    }
-
-    // Disallow path traversal/subdirectory deletion.
-    if (path.basename(normalized) !== normalized) {
-      return res.status(400).json({ message: "Invalid filename." });
-    }
-
-    const uploadRoot = path.resolve(UPLOAD_DIR);
-    const filePath = path.resolve(uploadRoot, normalized);
-    if (!filePath.startsWith(`${uploadRoot}${path.sep}`)) {
-      return res.status(400).json({ message: "Invalid file path." });
+    const { normalized, filePath, error } = resolveUploadFilePath(filename);
+    if (error) {
+      return res.status(400).json({ message: error });
     }
 
     if (!fs.existsSync(filePath)) {
@@ -531,6 +539,70 @@ const deleteSingleFile = (filename, res) => {
     return res.status(500).json({ message: "Failed to delete file." });
   }
 };
+
+app.post("/backup/files/rename", async (req, res) => {
+  try {
+    const { normalized: currentName, filePath: currentPath, error } = resolveUploadFilePath(
+      req.body?.filename
+    );
+    if (error) {
+      return res.status(400).json({ message: error });
+    }
+
+    if (!fs.existsSync(currentPath)) {
+      return res.status(404).json({ message: "File not found." });
+    }
+
+    const currentStat = await fsp.stat(currentPath);
+    if (!currentStat.isFile()) {
+      return res.status(400).json({ message: "Target is not a file." });
+    }
+
+    const requestedName = `${req.body?.nextFilename || ""}`.trim();
+    if (!requestedName) {
+      return res.status(400).json({ message: "New filename is required." });
+    }
+
+    const currentParsed = path.parse(currentName);
+    const requestedParsed = path.parse(requestedName);
+    const requestedHasExtension = Boolean(requestedParsed.ext);
+    const cleanedRequestedName = sanitizeUploadedName(
+      requestedHasExtension ? requestedName : `${requestedName}${currentParsed.ext}`
+    );
+
+    if (!cleanedRequestedName.trim()) {
+      return res.status(400).json({ message: "New filename is invalid." });
+    }
+
+    if (cleanedRequestedName === currentName) {
+      return res.status(200).json({
+        message: "Filename unchanged.",
+        filename: currentName,
+      });
+    }
+
+    const { filePath: nextPath, error: nextPathError } = resolveUploadFilePath(cleanedRequestedName);
+    if (nextPathError) {
+      return res.status(400).json({ message: nextPathError });
+    }
+
+    if (fs.existsSync(nextPath)) {
+      return res.status(409).json({ message: "A file with that name already exists." });
+    }
+
+    await fsp.rename(currentPath, nextPath);
+
+    return res.status(200).json({
+      message: "File renamed.",
+      filename: cleanedRequestedName,
+      previousFilename: currentName,
+      url: `/files/${cleanedRequestedName}`,
+    });
+  } catch (err) {
+    console.error("Failed to rename file:", err);
+    return res.status(500).json({ message: "Failed to rename file." });
+  }
+});
 
 // Delete a file by exact filename
 app.delete("/backup/files/:filename", (req, res) => {
