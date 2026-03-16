@@ -385,7 +385,7 @@ export default function FileTable({
                       <span className="recentSecondary">
                         {parsedName.isLegacy
                           ? `Imported version ${parsedName.legacyId}`
-                          : "Stored in backup vault"}
+                          : "Stored in Dell Server"}
                       </span>
                     </div>
                   </div>
