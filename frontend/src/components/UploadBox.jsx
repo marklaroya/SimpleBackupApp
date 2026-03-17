@@ -17,7 +17,16 @@ const formatSize = (bytes) => {
   return `${gb.toFixed(2)} GB`;
 };
 
-const fileKey = (file) => `${file.name}-${file.size}-${file.lastModified}`;
+const normalizeFolderInput = (folder) =>
+  `${folder || ""}`
+    .replace(/\\/g, "/")
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .join("/");
+
+const fileKey = (file, folder = "") =>
+  `${normalizeFolderInput(folder)}::${file.name}-${file.size}-${file.lastModified}`;
 
 const readStoredUploadSessions = () => {
   try {
@@ -34,17 +43,19 @@ const writeStoredUploadSessions = (sessions) => {
   window.localStorage.setItem(UPLOAD_SESSION_STORAGE_KEY, JSON.stringify(sessions));
 };
 
-const getStoredUploadSession = (file) => {
+const getStoredUploadSession = (file, folder = "") => {
+  const normalizedFolder = normalizeFolderInput(folder);
   const sessions = readStoredUploadSessions();
-  const session = sessions[fileKey(file)];
+  const session = sessions[fileKey(file, normalizedFolder)];
   if (!session) return null;
 
   if (
     session.name !== file.name ||
     session.size !== file.size ||
-    session.lastModified !== file.lastModified
+    session.lastModified !== file.lastModified ||
+    normalizeFolderInput(session.folder) !== normalizedFolder
   ) {
-    delete sessions[fileKey(file)];
+    delete sessions[fileKey(file, normalizedFolder)];
     writeStoredUploadSessions(sessions);
     return null;
   }
@@ -52,10 +63,12 @@ const getStoredUploadSession = (file) => {
   return session;
 };
 
-const saveStoredUploadSession = (file, session) => {
+const saveStoredUploadSession = (file, folder, session) => {
+  const normalizedFolder = normalizeFolderInput(folder);
   const sessions = readStoredUploadSessions();
-  sessions[fileKey(file)] = {
+  sessions[fileKey(file, normalizedFolder)] = {
     ...session,
+    folder: normalizedFolder,
     name: file.name,
     size: file.size,
     lastModified: file.lastModified,
@@ -63,9 +76,10 @@ const saveStoredUploadSession = (file, session) => {
   writeStoredUploadSessions(sessions);
 };
 
-const removeStoredUploadSession = (file) => {
+const removeStoredUploadSession = (file, folder = "") => {
+  const normalizedFolder = normalizeFolderInput(folder);
   const sessions = readStoredUploadSessions();
-  delete sessions[fileKey(file)];
+  delete sessions[fileKey(file, normalizedFolder)];
   writeStoredUploadSessions(sessions);
 };
 
@@ -83,7 +97,7 @@ const isRetryableChunkError = (error) => {
   return error.response.status >= 500 || error.response.status === 429;
 };
 
-export default function UploadBox({ apiBase, onUploaded, onStatus }) {
+export default function UploadBox({ apiBase, currentFolder = "", onUploaded, onStatus }) {
   const [selected, setSelected] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -97,6 +111,10 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
   const inputRef = useRef(null);
   const uploadAbortRef = useRef(null);
   const activeChunkSessionRef = useRef(null);
+  const normalizedCurrentFolder = useMemo(
+    () => normalizeFolderInput(currentFolder),
+    [currentFolder]
+  );
 
   const totalBytes = useMemo(
     () => selected.reduce((sum, file) => sum + (file?.size || 0), 0),
@@ -107,7 +125,7 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
     const map = new Map();
     [...base, ...incoming].forEach((file) => {
       if (!file) return;
-      map.set(fileKey(file), file);
+      map.set(fileKey(file, normalizedCurrentFolder), file);
     });
     return Array.from(map.values());
   };
@@ -145,7 +163,11 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
   };
 
   const removeSelected = (targetFile) => {
-    setSelected((prev) => prev.filter((file) => fileKey(file) !== fileKey(targetFile)));
+    setSelected((prev) =>
+      prev.filter(
+        (file) => fileKey(file, normalizedCurrentFolder) !== fileKey(targetFile, normalizedCurrentFolder)
+      )
+    );
   };
 
   const clearSelection = () => {
@@ -167,7 +189,7 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
         // Cleanup can be retried later.
       }
       if (activeSession.file) {
-        removeStoredUploadSession(activeSession.file);
+        removeStoredUploadSession(activeSession.file, activeSession.folder);
       }
       activeChunkSessionRef.current = null;
     }
@@ -183,6 +205,11 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    setSelected([]);
+    if (inputRef.current) inputRef.current.value = "";
+  }, [normalizedCurrentFolder]);
 
   const upload = async () => {
     if (selected.length === 0) {
@@ -216,6 +243,7 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
         `${apiBase}/upload/init`,
         {
           filename: file.name,
+          folder: normalizedCurrentFolder,
           size: file.size,
           lastModified: file.lastModified,
           chunkSize: CHUNK_SIZE_BYTES,
@@ -228,9 +256,10 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
         uploadId: data.uploadId,
         chunkSize: data.chunkSize,
         totalChunks: data.totalChunks,
+        folder: data.folder || normalizedCurrentFolder,
       };
 
-      saveStoredUploadSession(file, session);
+      saveStoredUploadSession(file, normalizedCurrentFolder, session);
       return session;
     };
 
@@ -242,7 +271,7 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
     };
 
     const resolveUploadSession = async (file) => {
-      const existingSession = getStoredUploadSession(file);
+      const existingSession = getStoredUploadSession(file, normalizedCurrentFolder);
       if (!existingSession?.uploadId) {
         const freshSession = await createUploadSession(file);
         return {
@@ -258,12 +287,13 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
             uploadId: existingSession.uploadId,
             chunkSize: status.chunkSize,
             totalChunks: status.totalChunks,
+            folder: status.folder || normalizedCurrentFolder,
           },
           uploadedChunkSet: new Set(status.uploadedChunks || []),
         };
       } catch (error) {
         if (error?.response?.status !== 404) throw error;
-        removeStoredUploadSession(file);
+        removeStoredUploadSession(file, normalizedCurrentFolder);
 
         const freshSession = await createUploadSession(file);
         return {
@@ -275,7 +305,11 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
 
     setUploading(true);
     updateProgress(0);
-    onStatus?.("Uploading files...");
+    onStatus?.(
+      normalizedCurrentFolder
+        ? `Uploading files to ${normalizedCurrentFolder}...`
+        : "Uploading files to Root..."
+    );
 
     try {
       let completedBatchBytes = 0;
@@ -331,6 +365,7 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
         activeChunkSessionRef.current = {
           uploadId: session.uploadId,
           file,
+          folder: normalizedCurrentFolder,
         };
 
         let currentFileLoaded = 0;
@@ -374,7 +409,7 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
           { signal: abortController.signal }
         );
 
-        removeStoredUploadSession(file);
+        removeStoredUploadSession(file, normalizedCurrentFolder);
         activeChunkSessionRef.current = null;
         completedBatchBytes += file.size;
         updateProgress(completedBatchBytes);
@@ -408,14 +443,20 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
     <section className="dashboardPanel uploadSection">
       <div className="sectionHead uploadSectionHead">
         <div>
-          <h2 className="sectionTitle">Upload Files</h2>
+          <h2 className="sectionTitle">Quick Upload</h2>
           <p className="sectionText">
-            Add files to storage.
+            Add files to {normalizedCurrentFolder || "Root"} with resumable transfer and
+            progress tracking.
           </p>
         </div>
         <div className="sectionMeta">
           {selected.length} file(s) / {formatSize(totalBytes)}
         </div>
+      </div>
+
+      <div className="uploadDestinationMeta">
+        <span className="storageMetaPill">Destination</span>
+        <span className="uploadDestinationPath">{normalizedCurrentFolder || "Root"}</span>
       </div>
 
       <div
@@ -468,7 +509,7 @@ export default function UploadBox({ apiBase, onUploaded, onStatus }) {
       {selected.length > 0 && (
         <div className="selectedList">
           {selected.slice(0, 6).map((file) => (
-            <div className="selectedItem" key={fileKey(file)}>
+            <div className="selectedItem" key={fileKey(file, normalizedCurrentFolder)}>
               <span className="selectedName" title={file.name}>
                 {file.name}
               </span>

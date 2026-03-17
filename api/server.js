@@ -25,12 +25,12 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR || "Backup";
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
+
 const CHUNK_UPLOAD_DIR = path.join(UPLOAD_DIR, CHUNK_UPLOAD_DIR_NAME);
 if (!fs.existsSync(CHUNK_UPLOAD_DIR)) {
   fs.mkdirSync(CHUNK_UPLOAD_DIR, { recursive: true });
 }
 
-// Mapped disk folder to HTTP route
 app.use(
   "/files",
   express.static(UPLOAD_DIR, {
@@ -60,7 +60,38 @@ const sanitizeUploadedName = (originalName) => {
   return `${baseName}${ext}`;
 };
 
-// unique name file when uploaded
+const sanitizeFolderSegment = (segment) => {
+  return `${segment || ""}`
+    .normalize("NFKC")
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_BASE_NAME_LENGTH);
+};
+
+const sanitizeRelativeFolder = (folderPath) => {
+  const normalized = `${folderPath || ""}`.replace(/\\/g, "/").trim();
+  if (!normalized) return "";
+
+  return normalized
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .filter((segment) => segment !== "." && segment !== "..")
+    .map(sanitizeFolderSegment)
+    .filter(Boolean)
+    .join("/");
+};
+
+const resolveTargetDirectory = (folderPath = "") => {
+  const cleanFolder = sanitizeRelativeFolder(folderPath);
+  const targetDirectory = cleanFolder
+    ? path.join(UPLOAD_DIR, ...cleanFolder.split("/"))
+    : UPLOAD_DIR;
+
+  return { cleanFolder, targetDirectory };
+};
+
 const ensureUniqueName = (directory, initialName) => {
   const parsed = path.parse(initialName);
   let nextName = initialName;
@@ -78,6 +109,10 @@ const createTempUploadName = (finalName) => {
   return `${Date.now()}-${crypto.randomUUID()}-${finalName}${PARTIAL_UPLOAD_SUFFIX}`;
 };
 
+const buildFileUrl = (relativePath) => {
+  return `/files/${relativePath.split("/").map(encodeURIComponent).join("/")}`;
+};
+
 const rememberTempUploadPath = (req, tempPath) => {
   if (!req.tempUploadPaths) req.tempUploadPaths = new Set();
   req.tempUploadPaths.add(tempPath);
@@ -92,7 +127,7 @@ const cleanupTempUploadPaths = async (req) => {
   await Promise.all(
     tempPaths.map(async (tempPath) => {
       try {
-        await fs.promises.unlink(tempPath);
+        await fsp.unlink(tempPath);
       } catch (err) {
         if (err.code !== "ENOENT") {
           console.error("Failed to remove partial upload:", tempPath, err);
@@ -137,22 +172,92 @@ const removeChunkUploadDir = async (uploadId) => {
 };
 
 const resolveUploadFilePath = (filename) => {
-  const normalized = (filename || "").trim();
+  const raw = `${filename || ""}`.replace(/\\/g, "/").trim();
+  if (!raw) {
+    return { error: "Filename is required." };
+  }
+
+  const normalizedPath = path.posix.normalize(raw);
+  if (
+    !normalizedPath ||
+    normalizedPath === "." ||
+    normalizedPath.startsWith("../") ||
+    normalizedPath.includes("/../") ||
+    path.posix.isAbsolute(normalizedPath)
+  ) {
+    return { error: "Invalid file path." };
+  }
+
+  const normalized = normalizedPath.split("/").filter(Boolean).join("/");
   if (!normalized) {
     return { error: "Filename is required." };
   }
 
-  if (path.basename(normalized) !== normalized) {
-    return { error: "Invalid filename." };
-  }
-
   const uploadRoot = path.resolve(UPLOAD_DIR);
-  const filePath = path.resolve(uploadRoot, normalized);
-  if (!filePath.startsWith(`${uploadRoot}${path.sep}`)) {
+  const filePath = path.resolve(uploadRoot, ...normalized.split("/"));
+  if (filePath !== uploadRoot && !filePath.startsWith(`${uploadRoot}${path.sep}`)) {
     return { error: "Invalid file path." };
   }
 
   return { normalized, filePath };
+};
+
+const listStoredFiles = (directoryPath = UPLOAD_DIR, relativeDir = "") => {
+  const entries = fs.readdirSync(directoryPath, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    if (entry.name === CHUNK_UPLOAD_DIR_NAME) continue;
+
+    const entryPath = path.join(directoryPath, entry.name);
+    const relativePath = relativeDir ? `${relativeDir}/${entry.name}` : entry.name;
+
+    if (entry.isDirectory()) {
+      files.push(...listStoredFiles(entryPath, relativePath));
+      continue;
+    }
+
+    if (!entry.isFile() || entry.name.endsWith(PARTIAL_UPLOAD_SUFFIX)) {
+      continue;
+    }
+
+    const stat = fs.statSync(entryPath);
+    files.push({
+      filename: relativePath,
+      basename: entry.name,
+      folder: relativeDir,
+      size: stat.size,
+      modified: stat.mtime,
+      url: buildFileUrl(relativePath),
+    });
+  }
+
+  return files;
+};
+
+const listStoredFolders = (directoryPath = UPLOAD_DIR, relativeDir = "") => {
+  const entries = fs.readdirSync(directoryPath, { withFileTypes: true });
+  const folders = [];
+
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name === CHUNK_UPLOAD_DIR_NAME) continue;
+
+    const folderPath = relativeDir ? `${relativeDir}/${entry.name}` : entry.name;
+    const absolutePath = path.join(directoryPath, entry.name);
+    const childEntries = fs
+      .readdirSync(absolutePath, { withFileTypes: true })
+      .filter((child) => child.name !== CHUNK_UPLOAD_DIR_NAME);
+
+    folders.push({
+      path: folderPath,
+      name: entry.name,
+      parentPath: relativeDir,
+      isEmpty: childEntries.length === 0,
+    });
+    folders.push(...listStoredFolders(absolutePath, folderPath));
+  }
+
+  return folders.sort((a, b) => a.path.localeCompare(b.path));
 };
 
 const mergeChunkUpload = async (uploadId, targetPath, totalChunks) => {
@@ -178,16 +283,14 @@ const mergeChunkUpload = async (uploadId, targetPath, totalChunks) => {
   });
 };
 
-
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
   filename: (req, file, cb) => {
     const cleanName = sanitizeUploadedName(file.originalname);
-    const finalName = ensureUniqueName(UPLOAD_DIR, cleanName);
-    const tempName = createTempUploadName(finalName);
+    const tempName = createTempUploadName(cleanName);
     const tempPath = path.join(UPLOAD_DIR, tempName);
 
-    file.finalFilename = finalName;
+    file.cleanedFilename = cleanName;
     rememberTempUploadPath(req, tempPath);
 
     cb(null, tempName);
@@ -213,6 +316,7 @@ const chunkUpload = multer({
 app.post("/upload/init", async (req, res) => {
   try {
     const requestedName = `${req.body?.filename || ""}`;
+    const targetFolder = sanitizeRelativeFolder(req.body?.folder);
     const totalSize = Number(req.body?.size);
     const chunkSize = Number(req.body?.chunkSize);
     const totalChunks = Number(req.body?.totalChunks);
@@ -240,6 +344,7 @@ app.post("/upload/init", async (req, res) => {
       uploadId,
       originalFilename: requestedName,
       cleanedFilename: sanitizeUploadedName(requestedName),
+      folder: targetFolder,
       size: totalSize,
       chunkSize,
       totalChunks,
@@ -255,6 +360,7 @@ app.post("/upload/init", async (req, res) => {
       chunkSize,
       totalChunks,
       filename: metadata.cleanedFilename,
+      folder: metadata.folder,
     });
   } catch (err) {
     console.error("Failed to initialize chunked upload:", err);
@@ -274,6 +380,7 @@ app.get("/upload/status/:uploadId", async (req, res) => {
     return res.json({
       uploadId: metadata.uploadId,
       filename: metadata.cleanedFilename,
+      folder: metadata.folder,
       totalChunks: metadata.totalChunks,
       chunkSize: metadata.chunkSize,
       uploadedChunks,
@@ -370,9 +477,13 @@ app.post("/upload/complete", async (req, res) => {
       });
     }
 
-    const finalName = ensureUniqueName(UPLOAD_DIR, metadata.cleanedFilename);
-    const finalPath = path.join(UPLOAD_DIR, finalName);
-    const finalTempPath = path.join(UPLOAD_DIR, createTempUploadName(finalName));
+    const { cleanFolder, targetDirectory } = resolveTargetDirectory(metadata.folder);
+    await fsp.mkdir(targetDirectory, { recursive: true });
+
+    const finalName = ensureUniqueName(targetDirectory, metadata.cleanedFilename);
+    const finalRelativePath = cleanFolder ? `${cleanFolder}/${finalName}` : finalName;
+    const finalPath = path.join(targetDirectory, finalName);
+    const finalTempPath = path.join(targetDirectory, createTempUploadName(finalName));
 
     await mergeChunkUpload(uploadId, finalTempPath, metadata.totalChunks);
     await fsp.rename(finalTempPath, finalPath);
@@ -384,10 +495,12 @@ app.post("/upload/complete", async (req, res) => {
       count: 1,
       files: [
         {
-          filename: finalName,
+          filename: finalRelativePath,
+          basename: finalName,
+          folder: cleanFolder,
           originalname: metadata.originalFilename,
           size: stat.size,
-          url: `/files/${finalName}`,
+          url: buildFileUrl(finalRelativePath),
         },
       ],
     });
@@ -411,7 +524,6 @@ app.delete("/upload/:uploadId", async (req, res) => {
   }
 });
 
-// Upload endpoint: saves files into UPLOAD_DIR
 app.post("/upload", (req, res) => {
   let requestAborted = false;
   req.on("aborted", () => {
@@ -455,21 +567,29 @@ app.post("/upload", (req, res) => {
     }
 
     try {
+      const { cleanFolder, targetDirectory } = resolveTargetDirectory(req.body?.folder);
+      await fsp.mkdir(targetDirectory, { recursive: true });
       const files = [];
 
       for (const file of req.files) {
         const tempPath = path.join(UPLOAD_DIR, file.filename);
-        const finalName = file.finalFilename || sanitizeUploadedName(file.originalname);
-        const finalPath = path.join(UPLOAD_DIR, finalName);
+        const finalName = ensureUniqueName(
+          targetDirectory,
+          file.cleanedFilename || sanitizeUploadedName(file.originalname)
+        );
+        const finalRelativePath = cleanFolder ? `${cleanFolder}/${finalName}` : finalName;
+        const finalPath = path.join(targetDirectory, finalName);
 
-        await fs.promises.rename(tempPath, finalPath);
+        await fsp.rename(tempPath, finalPath);
         forgetTempUploadPath(req, tempPath);
 
         files.push({
-          filename: finalName,
+          filename: finalRelativePath,
+          basename: finalName,
+          folder: cleanFolder,
           originalname: file.originalname,
           size: file.size,
-          url: `/files/${finalName}`,
+          url: buildFileUrl(finalRelativePath),
         });
       }
 
@@ -486,37 +606,24 @@ app.post("/upload", (req, res) => {
   });
 });
 
-// List files
 app.get("/backup/files", (_req, res) => {
   try {
-    const names = fs
-      .readdirSync(UPLOAD_DIR)
-      .filter((name) => !name.endsWith(PARTIAL_UPLOAD_SUFFIX));
-
-    const files = names
-      .map((name) => {
-        const fullPath = path.join(UPLOAD_DIR, name);
-        const stat = fs.statSync(fullPath);
-
-        if (!stat.isFile()) return null;
-
-        return {
-          filename: name,
-          size: stat.size,
-          modified: stat.mtime,
-          url: `/files/${name}`,
-        };
-      })
-      .filter(Boolean);
-
+    const files = listStoredFiles();
     res.json({ count: files.length, files });
   } catch (_err) {
     res.status(500).json({ message: "Failed to list files" });
   }
 });
 
+app.get("/backup/folders", (_req, res) => {
+  try {
+    const folders = listStoredFolders();
+    res.json({ count: folders.length, folders });
+  } catch (_err) {
+    res.status(500).json({ message: "Failed to list folders" });
+  }
+});
 
-// Deleting a File
 const deleteSingleFile = (filename, res) => {
   try {
     const { normalized, filePath, error } = resolveUploadFilePath(filename);
@@ -539,6 +646,57 @@ const deleteSingleFile = (filename, res) => {
     return res.status(500).json({ message: "Failed to delete file." });
   }
 };
+
+app.post("/backup/files/move", async (req, res) => {
+  try {
+    const { normalized: currentName, filePath: currentPath, error } = resolveUploadFilePath(
+      req.body?.filename
+    );
+    if (error) {
+      return res.status(400).json({ message: error });
+    }
+
+    if (!fs.existsSync(currentPath)) {
+      return res.status(404).json({ message: "File not found." });
+    }
+
+    const currentStat = await fsp.stat(currentPath);
+    if (!currentStat.isFile()) {
+      return res.status(400).json({ message: "Target is not a file." });
+    }
+
+    const currentParsed = path.posix.parse(currentName);
+    const targetFolder = sanitizeRelativeFolder(req.body?.targetFolder);
+
+    if (currentParsed.dir === targetFolder) {
+      return res.status(200).json({
+        message: "File already in that folder.",
+        filename: currentName,
+      });
+    }
+
+    const { cleanFolder, targetDirectory } = resolveTargetDirectory(targetFolder);
+    await fsp.mkdir(targetDirectory, { recursive: true });
+
+    const finalName = ensureUniqueName(targetDirectory, currentParsed.base);
+    const finalRelativePath = cleanFolder ? `${cleanFolder}/${finalName}` : finalName;
+    const finalPath = path.join(targetDirectory, finalName);
+
+    await fsp.rename(currentPath, finalPath);
+
+    return res.status(200).json({
+      message: "File moved.",
+      filename: finalRelativePath,
+      basename: finalName,
+      folder: cleanFolder,
+      previousFilename: currentName,
+      url: buildFileUrl(finalRelativePath),
+    });
+  } catch (err) {
+    console.error("Failed to move file:", err);
+    return res.status(500).json({ message: "Failed to move file." });
+  }
+});
 
 app.post("/backup/files/rename", async (req, res) => {
   try {
@@ -563,7 +721,12 @@ app.post("/backup/files/rename", async (req, res) => {
       return res.status(400).json({ message: "New filename is required." });
     }
 
-    const currentParsed = path.parse(currentName);
+    if (requestedName.includes("/") || requestedName.includes("\\")) {
+      return res.status(400).json({ message: "New filename cannot include folders." });
+    }
+
+    const currentParsed = path.posix.parse(currentName);
+    const currentFolder = currentParsed.dir || "";
     const requestedParsed = path.parse(requestedName);
     const requestedHasExtension = Boolean(requestedParsed.ext);
     const cleanedRequestedName = sanitizeUploadedName(
@@ -574,14 +737,21 @@ app.post("/backup/files/rename", async (req, res) => {
       return res.status(400).json({ message: "New filename is invalid." });
     }
 
-    if (cleanedRequestedName === currentName) {
+    const nextRelativePath = currentFolder
+      ? `${currentFolder}/${cleanedRequestedName}`
+      : cleanedRequestedName;
+    if (nextRelativePath === currentName) {
       return res.status(200).json({
         message: "Filename unchanged.",
         filename: currentName,
       });
     }
 
-    const { filePath: nextPath, error: nextPathError } = resolveUploadFilePath(cleanedRequestedName);
+    const {
+      normalized: normalizedNextPath,
+      filePath: nextPath,
+      error: nextPathError,
+    } = resolveUploadFilePath(nextRelativePath);
     if (nextPathError) {
       return res.status(400).json({ message: nextPathError });
     }
@@ -594,9 +764,11 @@ app.post("/backup/files/rename", async (req, res) => {
 
     return res.status(200).json({
       message: "File renamed.",
-      filename: cleanedRequestedName,
+      filename: normalizedNextPath,
+      basename: cleanedRequestedName,
+      folder: currentFolder,
       previousFilename: currentName,
-      url: `/files/${cleanedRequestedName}`,
+      url: buildFileUrl(normalizedNextPath),
     });
   } catch (err) {
     console.error("Failed to rename file:", err);
@@ -604,12 +776,76 @@ app.post("/backup/files/rename", async (req, res) => {
   }
 });
 
-// Delete a file by exact filename
+app.post("/backup/folders", async (req, res) => {
+  try {
+    const providedPath = `${req.body?.folderPath || ""}`.trim();
+    const parentPath = sanitizeRelativeFolder(req.body?.parentPath);
+    const requestedFolder =
+      providedPath.includes("/") || providedPath.includes("\\")
+        ? sanitizeRelativeFolder(providedPath)
+        : sanitizeRelativeFolder(parentPath ? `${parentPath}/${providedPath}` : providedPath);
+
+    if (!requestedFolder) {
+      return res.status(400).json({ message: "Folder path is required." });
+    }
+
+    const { cleanFolder, targetDirectory } = resolveTargetDirectory(requestedFolder);
+    if (fs.existsSync(targetDirectory)) {
+      return res.status(409).json({ message: "Folder already exists." });
+    }
+
+    await fsp.mkdir(targetDirectory, { recursive: true });
+    return res.status(201).json({
+      message: "Folder created.",
+      folder: {
+        path: cleanFolder,
+        name: path.posix.basename(cleanFolder),
+        parentPath: path.posix.dirname(cleanFolder) === "." ? "" : path.posix.dirname(cleanFolder),
+        isEmpty: true,
+      },
+    });
+  } catch (err) {
+    console.error("Failed to create folder:", err);
+    return res.status(500).json({ message: "Failed to create folder." });
+  }
+});
+
+app.post("/backup/folders/delete", async (req, res) => {
+  try {
+    const folderPath = sanitizeRelativeFolder(req.body?.folderPath);
+    if (!folderPath) {
+      return res.status(400).json({ message: "Folder path is required." });
+    }
+
+    const { targetDirectory } = resolveTargetDirectory(folderPath);
+    if (!fs.existsSync(targetDirectory)) {
+      return res.status(404).json({ message: "Folder not found." });
+    }
+
+    const stat = await fsp.stat(targetDirectory);
+    if (!stat.isDirectory()) {
+      return res.status(400).json({ message: "Target is not a folder." });
+    }
+
+    const childEntries = (await fsp.readdir(targetDirectory)).filter(
+      (entry) => entry !== CHUNK_UPLOAD_DIR_NAME
+    );
+    if (childEntries.length > 0) {
+      return res.status(409).json({ message: "Folder is not empty." });
+    }
+
+    await fsp.rmdir(targetDirectory);
+    return res.status(200).json({ message: "Folder deleted.", folderPath });
+  } catch (err) {
+    console.error("Failed to delete folder:", err);
+    return res.status(500).json({ message: "Failed to delete folder." });
+  }
+});
+
 app.delete("/backup/files/:filename", (req, res) => {
   return deleteSingleFile(req.params.filename, res);
 });
 
-// Fallback delete endpoint for clients/proxies that block DELETE verbs.
 app.post("/backup/files/delete", (req, res) => {
   return deleteSingleFile(req.body?.filename, res);
 });

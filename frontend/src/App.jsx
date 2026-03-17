@@ -9,6 +9,7 @@ const STORAGE_CAPACITY_BYTES =
   Number.isFinite(STORAGE_CAPACITY_GB) && STORAGE_CAPACITY_GB > 0
     ? STORAGE_CAPACITY_GB * 1024 * 1024 * 1024
     : 100 * 1024 * 1024 * 1024;
+const ALL_FILES_FOLDER = "__all_files__";
 
 const STORAGE_GROUPS = [
   {
@@ -61,18 +62,6 @@ const STORAGE_GROUPS = [
   },
 ];
 
-const NAV_ITEMS = [
-  { label: "Home", shortLabel: "HM", active: true },
-  { label: "My Files", shortLabel: "FL" },
-  { label: "Documents", shortLabel: "DC" },
-  { label: "Images", shortLabel: "IM" },
-  { label: "Audio", shortLabel: "AU" },
-  { label: "Videos", shortLabel: "VD" },
-  { label: "Recent", shortLabel: "RC" },
-  { label: "Shared", shortLabel: "SH" },
-  { label: "Trash", shortLabel: "TR" },
-];
-
 const formatSize = (bytes) => {
   if (!bytes) return "0 B";
   const kb = bytes / 1024;
@@ -93,9 +82,64 @@ const formatDate = (value) => {
   }).format(parsed);
 };
 
+const getBaseFilename = (filename) => {
+  const normalized = `${filename || ""}`.replace(/\\/g, "/");
+  const parts = normalized.split("/").filter(Boolean);
+  return parts.length > 0 ? parts[parts.length - 1] : normalized;
+};
+
+const getFileFolder = (file) => {
+  if (typeof file?.folder === "string") return file.folder;
+
+  const normalized = `${file?.filename || ""}`.replace(/\\/g, "/");
+  const parts = normalized.split("/").filter(Boolean);
+  return parts.length > 1 ? parts.slice(0, -1).join("/") : "";
+};
+
+const getFolderName = (folderPath) => {
+  if (!folderPath) return "Root";
+  const parts = folderPath.split("/").filter(Boolean);
+  return parts.length > 0 ? parts[parts.length - 1] : "Root";
+};
+
+const getParentFolder = (folderPath) => {
+  if (!folderPath) return "";
+  const parts = folderPath.split("/").filter(Boolean);
+  if (parts.length <= 1) return "";
+  return parts.slice(0, -1).join("/");
+};
+
+const buildFolderTree = (folders) => {
+  const nodeMap = new Map();
+  folders.forEach((folder) => {
+    nodeMap.set(folder.path, {
+      ...folder,
+      children: [],
+    });
+  });
+
+  const roots = [];
+  nodeMap.forEach((node) => {
+    if (node.parentPath && nodeMap.has(node.parentPath)) {
+      nodeMap.get(node.parentPath).children.push(node);
+      return;
+    }
+    roots.push(node);
+  });
+
+  const sortNodes = (nodes) => {
+    nodes.sort((a, b) => a.name.localeCompare(b.name));
+    nodes.forEach((node) => sortNodes(node.children));
+    return nodes;
+  };
+
+  return sortNodes(roots);
+};
+
 const resolveStorageGroup = (filename) => {
-  if (!filename || !filename.includes(".")) return "Others";
-  const ext = (filename.split(".").pop() || "").toLowerCase();
+  const baseName = getBaseFilename(filename);
+  if (!baseName || !baseName.includes(".")) return "Others";
+  const ext = (baseName.split(".").pop() || "").toLowerCase();
   const match = STORAGE_GROUPS.find(
     (group) => group.key !== "Others" && group.exts.includes(ext)
   );
@@ -117,10 +161,6 @@ const buildDonutGradient = (segments, totalBytes) => {
     current = end;
   });
 
-  if (stops.length === 0) {
-    return "conic-gradient(var(--chart-empty) 0deg 360deg)";
-  }
-
   if (current < 360) {
     stops.push(`var(--chart-empty) ${current}deg 360deg`);
   }
@@ -134,65 +174,26 @@ export default function App() {
     `${window.location.protocol}//${window.location.hostname}:4000`;
 
   const [files, setFiles] = useState([]);
+  const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentFolder, setCurrentFolder] = useState(ALL_FILES_FOLDER);
   const [theme, setTheme] = useState(() => {
     const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
     if (storedTheme === "light" || storedTheme === "dark") return storedTheme;
     return "light";
   });
+  const [moveDialog, setMoveDialog] = useState({
+    open: false,
+    file: null,
+    targetFolder: "",
+    submitting: false,
+  });
 
   const activeLoadController = useRef(null);
 
-  const totalBytes = useMemo(
-    () => files.reduce((sum, file) => sum + (file?.size || 0), 0),
-    [files]
-  );
-
-  const filesByRecent = useMemo(() => {
-    return [...files].sort(
-      (a, b) => new Date(b.modified || 0) - new Date(a.modified || 0)
-    );
-  }, [files]);
-
-  const usedPercent = Math.max(
-    0,
-    Math.min(100, Math.round((totalBytes / STORAGE_CAPACITY_BYTES) * 100))
-  );
-  const remainingBytes = Math.max(0, STORAGE_CAPACITY_BYTES - totalBytes);
-
-  const searchMatchCount = useMemo(() => {
-    const normalized = searchQuery.trim().toLowerCase();
-    if (!normalized) return files.length;
-    return files.filter((file) =>
-      (file.filename || "").toLowerCase().includes(normalized)
-    ).length;
-  }, [files, searchQuery]);
-
-  const storageCards = useMemo(() => {
-    const initial = Object.fromEntries(
-      STORAGE_GROUPS.map((group) => [
-        group.key,
-        { ...group, count: 0, bytes: 0 },
-      ])
-    );
-
-    files.forEach((file) => {
-      const key = resolveStorageGroup(file.filename);
-      initial[key].count += 1;
-      initial[key].bytes += file?.size || 0;
-    });
-
-    return STORAGE_GROUPS.map((group) => initial[group.key]);
-  }, [files]);
-
-  const donutGradient = useMemo(
-    () => buildDonutGradient(storageCards, totalBytes),
-    [storageCards, totalBytes]
-  );
-
-  const loadFiles = useCallback(async () => {
+  const loadLibrary = useCallback(async () => {
     if (activeLoadController.current) {
       activeLoadController.current.abort();
     }
@@ -202,21 +203,38 @@ export default function App() {
     const timeoutId = setTimeout(() => controller.abort(), LOAD_TIMEOUT_MS);
 
     setLoading(true);
-    setStatus((prev) => (/Upload complete|File deleted/i.test(prev) ? prev : ""));
+    setStatus((prev) =>
+      /Upload complete|File deleted|File renamed|File moved|Folder created|Folder deleted/i.test(prev)
+        ? prev
+        : ""
+    );
+
     try {
-      const res = await fetch(`${API}/backup/files`, {
-        signal: controller.signal,
-        cache: "no-store",
-      });
-      if (!res.ok) throw new Error(`List failed (${res.status})`);
-      const data = await res.json();
-      setFiles(data.files || []);
+      const [filesRes, foldersRes] = await Promise.all([
+        fetch(`${API}/backup/files`, {
+          signal: controller.signal,
+          cache: "no-store",
+        }),
+        fetch(`${API}/backup/folders`, {
+          signal: controller.signal,
+          cache: "no-store",
+        }),
+      ]);
+
+      if (!filesRes.ok) throw new Error(`Files failed (${filesRes.status})`);
+      if (!foldersRes.ok) throw new Error(`Folders failed (${foldersRes.status})`);
+
+      const filesData = await filesRes.json();
+      const foldersData = await foldersRes.json();
+
+      setFiles(filesData.files || []);
+      setFolders(foldersData.folders || []);
     } catch (error) {
       if (activeLoadController.current !== controller) return;
       if (error?.name === "AbortError") {
         setStatus("Server request timed out. Please try again.");
       } else {
-        setStatus(error.message || "Failed to load files");
+        setStatus(error.message || "Failed to load library");
       }
     } finally {
       clearTimeout(timeoutId);
@@ -228,24 +246,215 @@ export default function App() {
   }, [API]);
 
   useEffect(() => {
-    loadFiles();
+    loadLibrary();
     return () => {
       if (activeLoadController.current) {
         activeLoadController.current.abort();
       }
     };
-  }, [loadFiles]);
+  }, [loadLibrary]);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     window.localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
 
+  useEffect(() => {
+    if (currentFolder === ALL_FILES_FOLDER || currentFolder === "") return;
+    if (folders.some((folder) => folder.path === currentFolder)) return;
+    setCurrentFolder("");
+  }, [currentFolder, folders]);
+
+  const folderTree = useMemo(() => buildFolderTree(folders), [folders]);
+
+  const scopedFiles = useMemo(() => {
+    if (currentFolder === ALL_FILES_FOLDER) return files;
+    return files.filter((file) => getFileFolder(file) === currentFolder);
+  }, [currentFolder, files]);
+
+  const totalBytes = useMemo(
+    () => files.reduce((sum, file) => sum + (file?.size || 0), 0),
+    [files]
+  );
+
+  const scopedBytes = useMemo(
+    () => scopedFiles.reduce((sum, file) => sum + (file?.size || 0), 0),
+    [scopedFiles]
+  );
+
+  const filesByRecent = useMemo(() => {
+    return [...files].sort(
+      (a, b) => new Date(b.modified || 0) - new Date(a.modified || 0)
+    );
+  }, [files]);
+
+  const remainingBytes = Math.max(0, STORAGE_CAPACITY_BYTES - totalBytes);
+
+  const storageCards = useMemo(() => {
+    const initial = Object.fromEntries(
+      STORAGE_GROUPS.map((group) => [group.key, { ...group, count: 0, bytes: 0 }])
+    );
+
+    scopedFiles.forEach((file) => {
+      const key = resolveStorageGroup(file.filename);
+      initial[key].count += 1;
+      initial[key].bytes += file?.size || 0;
+    });
+
+    return STORAGE_GROUPS.map((group) => initial[group.key]);
+  }, [scopedFiles]);
+
+  const donutGradient = useMemo(
+    () => buildDonutGradient(storageCards, scopedBytes),
+    [storageCards, scopedBytes]
+  );
+
+  const currentFolderBreadcrumb = useMemo(() => {
+    if (currentFolder === ALL_FILES_FOLDER) {
+      return [{ label: "All Files", value: ALL_FILES_FOLDER }];
+    }
+
+    const parts = currentFolder.split("/").filter(Boolean);
+    const segments = [{ label: "Root", value: "" }];
+    parts.forEach((part, index) => {
+      segments.push({
+        label: part,
+        value: parts.slice(0, index + 1).join("/"),
+      });
+    });
+    return segments;
+  }, [currentFolder]);
+
   const statusTone = /error|failed/i.test(status)
     ? "statusError"
-    : /complete|success|deleted|canceled/i.test(status)
+    : /complete|success|deleted|canceled|renamed|moved|created/i.test(status)
       ? "statusSuccess"
       : "statusInfo";
+
+  const createFolder = async () => {
+    const baseFolder = currentFolder === ALL_FILES_FOLDER ? "" : currentFolder;
+    const requested = window.prompt(
+      "Create folder",
+      baseFolder ? `${baseFolder}/New Folder` : "New Folder"
+    );
+    if (requested === null) return;
+
+    const trimmed = requested.trim();
+    if (!trimmed) return;
+
+    try {
+      const res = await fetch(`${API}/backup/folders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          folderPath: trimmed,
+          parentPath: baseFolder,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || `Create folder failed (${res.status})`);
+      }
+
+      setStatus(data.message || "Folder created.");
+      setCurrentFolder(data.folder?.path || baseFolder || "");
+      await loadLibrary();
+    } catch (error) {
+      setStatus(error.message || "Failed to create folder.");
+    }
+  };
+
+  const deleteFolder = async () => {
+    if (!currentFolder || currentFolder === ALL_FILES_FOLDER) return;
+
+    const confirmed = window.confirm(`Delete empty folder "${currentFolder}"?`);
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`${API}/backup/folders/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folderPath: currentFolder }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || `Delete folder failed (${res.status})`);
+      }
+
+      setStatus(data.message || "Folder deleted.");
+      setCurrentFolder(getParentFolder(currentFolder));
+      await loadLibrary();
+    } catch (error) {
+      setStatus(error.message || "Failed to delete folder.");
+    }
+  };
+
+  const openMoveDialog = (file) => {
+    setMoveDialog({
+      open: true,
+      file,
+      targetFolder: getFileFolder(file),
+      submitting: false,
+    });
+  };
+
+  const closeMoveDialog = () => {
+    setMoveDialog({
+      open: false,
+      file: null,
+      targetFolder: "",
+      submitting: false,
+    });
+  };
+
+  const submitMoveDialog = async () => {
+    if (!moveDialog.file) return;
+
+    setMoveDialog((prev) => ({ ...prev, submitting: true }));
+    try {
+      const res = await fetch(`${API}/backup/files/move`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: moveDialog.file.filename,
+          targetFolder: moveDialog.targetFolder,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || `Move failed (${res.status})`);
+      }
+
+      setStatus(data.message || "File moved.");
+      closeMoveDialog();
+      await loadLibrary();
+    } catch (error) {
+      setStatus(error.message || "Failed to move file.");
+      setMoveDialog((prev) => ({ ...prev, submitting: false }));
+    }
+  };
+
+  const renderFolderNodes = (nodes, depth = 0) => {
+    return nodes.map((node) => (
+      <div key={node.path} className="folderTreeNode">
+        <button
+          type="button"
+          className={`folderTreeButton ${currentFolder === node.path ? "isActive" : ""}`}
+          style={{ paddingLeft: `${14 + depth * 16}px` }}
+          onClick={() => setCurrentFolder(node.path)}
+        >
+          <span className="folderTreeGlyph" aria-hidden="true">
+            FD
+          </span>
+          <span className="folderTreeLabel">{node.name}</span>
+        </button>
+        {node.children.length > 0 ? renderFolderNodes(node.children, depth + 1) : null}
+      </div>
+    ));
+  };
 
   return (
     <div className="page">
@@ -256,32 +465,61 @@ export default function App() {
               BV
             </span>
             <div className="brandMeta">
-              <span className="brandEyebrow">Personal</span>
-              <span className="brandTitle">File Storage</span>
+              <span className="brandEyebrow">Personal Cloud</span>
+              <span className="brandTitle">Backup Vault</span>
             </div>
           </div>
 
-          <nav className="sidebarNavList" aria-label="Primary navigation">
-            {NAV_ITEMS.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                className={`sidebarNavItem ${item.active ? "isActive" : ""}`}
-              >
-                <span className="sidebarNavGlyph" aria-hidden="true">
-                  {item.shortLabel}
-                </span>
-                <span>{item.label}</span>
+          <div className="folderSection">
+            <div className="folderSectionHead">
+              <span className="sidebarFootLabel">Folders</span>
+              <button type="button" className="folderActionLink" onClick={createFolder}>
+                New
               </button>
-            ))}
-          </nav>
+            </div>
+
+            <div className="folderQuickLinks">
+              <button
+                type="button"
+                className={`folderTreeButton ${currentFolder === ALL_FILES_FOLDER ? "isActive" : ""}`}
+                onClick={() => setCurrentFolder(ALL_FILES_FOLDER)}
+              >
+                <span className="folderTreeGlyph" aria-hidden="true">
+                  AL
+                </span>
+                <span className="folderTreeLabel">All Files</span>
+              </button>
+
+              <button
+                type="button"
+                className={`folderTreeButton ${currentFolder === "" ? "isActive" : ""}`}
+                onClick={() => setCurrentFolder("")}
+              >
+                <span className="folderTreeGlyph" aria-hidden="true">
+                  RT
+                </span>
+                <span className="folderTreeLabel">Root</span>
+              </button>
+            </div>
+
+            <div className="folderTree">{renderFolderNodes(folderTree)}</div>
+          </div>
 
           <div className="sidebarFoot">
-            <span className="sidebarFootLabel">Current Storage</span>
-            <strong className="sidebarFootValue">{STORAGE_CAPACITY_GB} GB</strong>
+            <span className="sidebarFootLabel">Current scope</span>
+            <strong className="sidebarFootValue">
+              {currentFolder === ALL_FILES_FOLDER ? "All Files" : getFolderName(currentFolder)}
+            </strong>
             <span className="sidebarFootHint">
-              {formatSize(remainingBytes)} free, {usedPercent}% in use.
+              {currentFolder === ALL_FILES_FOLDER
+                ? `${files.length} files across all folders`
+                : `${scopedFiles.length} files in ${currentFolder || "Root"}`}
             </span>
+            {currentFolder !== ALL_FILES_FOLDER && currentFolder !== "" ? (
+              <button type="button" className="btn btnGhost" onClick={deleteFolder}>
+                Delete Empty Folder
+              </button>
+            ) : null}
           </div>
         </aside>
 
@@ -302,7 +540,7 @@ export default function App() {
               <button
                 type="button"
                 className="controlButton controlButtonQuiet"
-                onClick={loadFiles}
+                onClick={loadLibrary}
                 disabled={loading}
               >
                 {loading ? "Syncing" : "Refresh"}
@@ -333,13 +571,12 @@ export default function App() {
                   <div>
                     <h1 className="sectionTitle">Storage</h1>
                     <p className="sectionText">
-                      A quick view of how your library is distributed across file
-                      types.
+                      Overview for {currentFolder === ALL_FILES_FOLDER ? "all files" : currentFolder || "Root"}.
                     </p>
                   </div>
                   <div className="storageSectionMeta">
-                    <span className="storageMetaPill">{files.length} files</span>
-                    <span className="storageMetaPill">{formatSize(totalBytes)} used</span>
+                    <span className="storageMetaPill">{scopedFiles.length} files</span>
+                    <span className="storageMetaPill">{formatSize(scopedBytes)} in scope</span>
                     <span className="storageMetaPill">{formatSize(remainingBytes)} free</span>
                   </div>
                 </div>
@@ -361,26 +598,55 @@ export default function App() {
 
               <UploadBox
                 apiBase={API}
+                currentFolder={currentFolder === ALL_FILES_FOLDER ? "" : currentFolder}
                 onUploaded={() => {
                   setStatus("Upload complete");
-                  loadFiles();
+                  loadLibrary();
                 }}
                 onStatus={(message) => setStatus(message)}
               />
+
+              <section className="dashboardPanel folderBreadcrumbPanel">
+                <div className="folderBreadcrumb">
+                  {currentFolderBreadcrumb.map((item, index) => (
+                    <div key={item.value || "root"} className="folderBreadcrumbItem">
+                      <button
+                        type="button"
+                        className={`folderBreadcrumbButton ${
+                          item.value === currentFolder ? "isActive" : ""
+                        }`}
+                        onClick={() => setCurrentFolder(item.value)}
+                      >
+                        {item.label}
+                      </button>
+                      {index < currentFolderBreadcrumb.length - 1 ? (
+                        <span className="folderBreadcrumbDivider">/</span>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="folderBreadcrumbMeta">
+                  <span>{currentFolder === ALL_FILES_FOLDER ? "All folders" : currentFolder || "Root"}</span>
+                  <span>{scopedFiles.length} visible</span>
+                </div>
+              </section>
 
               <FileTable
                 files={files}
                 loading={loading}
                 apiBase={API}
-                onRefresh={loadFiles}
+                currentFolder={currentFolder}
+                onRefresh={loadLibrary}
                 searchQuery={searchQuery}
+                onRequestMove={openMoveDialog}
                 onRename={async (_previousFilename, _nextFilename, message) => {
                   setStatus(message || "File renamed");
-                  await loadFiles();
+                  await loadLibrary();
                 }}
                 onDelete={async (_filename, message) => {
                   setStatus(message || "File deleted");
-                  await loadFiles();
+                  await loadLibrary();
                 }}
               />
 
@@ -392,7 +658,7 @@ export default function App() {
                 <div>
                   <h2 className="sectionTitle">Storage Stats</h2>
                   <p className="sectionText">
-                    A clear summary of your current storage usage.
+                    Scope-aware summary for your current folder view.
                   </p>
                 </div>
               </div>
@@ -404,14 +670,14 @@ export default function App() {
                   aria-hidden="true"
                 >
                   <div className="donutChartInner">
-                    <strong>{usedPercent}%</strong>
-                    <span>Used</span>
+                    <strong>{scopedFiles.length}</strong>
+                    <span>files</span>
                   </div>
                 </div>
 
                 <div className="donutSummary">
-                  <strong>{formatSize(totalBytes)}</strong>
-                  <span>of {STORAGE_CAPACITY_GB} GB</span>
+                  <strong>{formatSize(scopedBytes)}</strong>
+                  <span>{currentFolder === ALL_FILES_FOLDER ? "in all folders" : "in current scope"}</span>
                 </div>
               </div>
 
@@ -437,24 +703,81 @@ export default function App() {
                   <strong>{formatSize(remainingBytes)}</strong>
                 </div>
                 <div className="statsMetaRow">
-                  <span className="statsMetaLabel">Visible now</span>
-                  <strong>{searchMatchCount}</strong>
-                </div>
-                <div className="statsMetaRow">
                   <span className="statsMetaLabel">Latest update</span>
                   <strong>
                     {filesByRecent[0] ? formatDate(filesByRecent[0].modified) : "No files yet"}
                   </strong>
                 </div>
                 <div className="statsMetaRow">
-                  <span className="statsMetaLabel">Server state</span>
-                  <strong>{loading ? "Syncing" : "Ready"}</strong>
+                  <span className="statsMetaLabel">Current folder</span>
+                  <strong>{currentFolder === ALL_FILES_FOLDER ? "All Files" : currentFolder || "Root"}</strong>
                 </div>
               </div>
             </aside>
           </div>
         </section>
       </main>
+
+      {moveDialog.open && moveDialog.file ? (
+        <div className="dialogBackdrop" role="presentation" onClick={closeMoveDialog}>
+          <div
+            className="dialogPanel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="move-file-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="dialogHead">
+              <div>
+                <h2 className="sectionTitle dialogTitle" id="move-file-title">
+                  Move File
+                </h2>
+                <p className="sectionText">
+                  Move {moveDialog.file.basename || getBaseFilename(moveDialog.file.filename)} to another folder.
+                </p>
+              </div>
+            </div>
+
+            <label className="inputGroup">
+              <span className="inputLabel">Destination</span>
+              <select
+                className="fieldSelect dialogSelect"
+                value={moveDialog.targetFolder}
+                onChange={(event) =>
+                  setMoveDialog((prev) => ({ ...prev, targetFolder: event.target.value }))
+                }
+                disabled={moveDialog.submitting}
+              >
+                <option value="">Root</option>
+                {folders.map((folder) => (
+                  <option key={folder.path} value={folder.path}>
+                    {folder.path}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="dialogActions">
+              <button
+                type="button"
+                className="btn btnGhost"
+                onClick={closeMoveDialog}
+                disabled={moveDialog.submitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btnAccent"
+                onClick={submitMoveDialog}
+                disabled={moveDialog.submitting}
+              >
+                {moveDialog.submitting ? "Moving" : "Move File"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

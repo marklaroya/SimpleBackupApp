@@ -209,6 +209,106 @@ button {
   font-size: 0.86rem;
 }
 
+.folderSection {
+  display: grid;
+  gap: 14px;
+}
+
+.folderSectionHead,
+.folderBreadcrumb,
+.folderBreadcrumbItem,
+.uploadDestinationMeta,
+.dialogHead,
+.dialogActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.folderSectionHead,
+.dialogHead,
+.dialogActions {
+  justify-content: space-between;
+}
+
+.folderActionLink {
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font: 700 0.76rem/1 "Manrope", sans-serif;
+  cursor: pointer;
+}
+
+.folderActionLink:hover {
+  background: var(--accent-soft);
+}
+
+.folderQuickLinks,
+.folderTree {
+  display: grid;
+  gap: 6px;
+}
+
+.folderTree {
+  max-height: 420px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.folderTreeNode {
+  display: grid;
+  gap: 6px;
+}
+
+.folderTreeButton {
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 16px;
+  background: transparent;
+  color: var(--text-soft);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+
+.folderTreeButton:hover,
+.folderTreeButton.isActive {
+  background: var(--panel-strong);
+  color: var(--text);
+  box-shadow: var(--shadow-md);
+}
+
+.folderTreeGlyph {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--field);
+  color: var(--text-muted);
+  font: 700 0.62rem/1 "JetBrains Mono", monospace;
+  flex: 0 0 auto;
+}
+
+.folderTreeButton.isActive .folderTreeGlyph {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.folderTreeLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.92rem;
+}
+
 .workspacePanel {
   min-width: 0;
   display: grid;
@@ -476,6 +576,17 @@ button {
 .uploadSection,
 .recentFilesSection {
   background: var(--panel-strong);
+}
+
+.uploadDestinationMeta {
+  margin-top: 18px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.uploadDestinationPath {
+  color: var(--text-soft);
+  font-size: 0.9rem;
 }
 
 .dropZone {
@@ -821,6 +932,10 @@ button {
   font-size: 0.9rem;
 }
 
+.statusInfo {
+  color: var(--text-soft);
+}
+
 .tableCellValue {
   color: var(--text);
   font: 700 0.8rem/1.2 "JetBrains Mono", monospace;
@@ -871,6 +986,93 @@ button {
 .recentActionDanger:hover:not(:disabled) {
   color: var(--danger);
   background: var(--danger-soft);
+}
+
+.folderBreadcrumbPanel {
+  padding-top: 18px;
+  padding-bottom: 18px;
+}
+
+.folderBreadcrumb {
+  flex-wrap: wrap;
+}
+
+.folderBreadcrumbItem {
+  gap: 8px;
+}
+
+.folderBreadcrumbButton {
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-soft);
+  font: 700 0.78rem/1 "Manrope", sans-serif;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.folderBreadcrumbButton:hover,
+.folderBreadcrumbButton.isActive {
+  background: var(--field);
+  color: var(--text);
+}
+
+.folderBreadcrumbDivider {
+  color: var(--text-muted);
+  font: 700 0.72rem/1 "JetBrains Mono", monospace;
+}
+
+.folderBreadcrumbMeta {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.inputGroup {
+  display: grid;
+  gap: 8px;
+}
+
+.inputLabel {
+  color: var(--text-soft);
+  font: 700 0.76rem/1 "JetBrains Mono", monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dialogBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(22, 32, 47, 0.18);
+  backdrop-filter: blur(12px);
+}
+
+.dialogPanel {
+  width: min(100%, 460px);
+  padding: 24px;
+  border-radius: 28px;
+  background: var(--panel-strong);
+  box-shadow: var(--shadow-xl);
+  display: grid;
+  gap: 18px;
+}
+
+.dialogTitle {
+  font-size: 1.3rem;
+}
+
+.dialogSelect {
+  width: 100%;
 }
 
 .statusSuccess {
@@ -965,6 +1167,10 @@ html[data-theme="dark"] .recentActionSecondary:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.05);
 }
 
+html[data-theme="dark"] .dialogBackdrop {
+  background: rgba(5, 10, 18, 0.42);
+}
+
 @media (max-width: 1380px) {
   .storageCardsGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -992,6 +1198,10 @@ html[data-theme="dark"] .recentActionSecondary:hover:not(:disabled) {
   .statsPanel {
     position: static;
   }
+
+  .folderTree {
+    max-height: none;
+  }
 }
 
 @media (max-width: 920px) {
@@ -1010,7 +1220,8 @@ html[data-theme="dark"] .recentActionSecondary:hover:not(:disabled) {
   .topBarActions,
   .filesHeadControls,
   .uploadRow,
-  .storageSectionMeta {
+  .storageSectionMeta,
+  .folderBreadcrumbMeta {
     justify-content: flex-start;
   }
 
@@ -1037,6 +1248,10 @@ html[data-theme="dark"] .recentActionSecondary:hover:not(:disabled) {
   .recentActions {
     justify-content: flex-start;
   }
+
+  .dialogBackdrop {
+    padding: 16px;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1057,6 +1272,10 @@ html[data-theme="dark"] .recentActionSecondary:hover:not(:disabled) {
 
   .selectedItem {
     grid-template-columns: 1fr;
+  }
+
+  .folderTreeButton {
+    min-height: 38px;
   }
 
   .recentFileCell {
