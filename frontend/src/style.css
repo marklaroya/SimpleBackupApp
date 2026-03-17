@@ -81,42 +81,42 @@ button {
 
 .page {
   min-height: 100vh;
-  padding: 24px;
+  padding: clamp(12px, 1.2vw, 20px);
 }
 
 .vaultApp {
-  max-width: 1480px;
+  width: min(100%, 1680px);
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 24px;
+  grid-template-columns: 188px minmax(0, 1fr);
+  gap: 16px;
   align-items: start;
 }
 
 .sidebarPanel {
   position: sticky;
-  top: 24px;
-  min-height: calc(100vh - 48px);
-  padding: 20px 16px;
+  top: 16px;
+  min-height: calc(100vh - 32px);
+  padding: 18px 12px;
   border-radius: var(--radius-2xl);
   background: var(--panel-soft);
   box-shadow: var(--shadow-lg);
   display: grid;
   align-content: start;
-  gap: 24px;
+  gap: 18px;
   backdrop-filter: blur(16px);
 }
 
 .brandBlock {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
 }
 
 .brandMark {
-  width: 48px;
-  height: 48px;
-  border-radius: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 15px;
   display: grid;
   place-items: center;
   background: var(--brand-gradient);
@@ -143,7 +143,7 @@ button {
 }
 
 .brandTitle {
-  font: 800 1.14rem/1.05 "Manrope", sans-serif;
+  font: 800 1.04rem/1.05 "Manrope", sans-serif;
   letter-spacing: -0.04em;
 }
 
@@ -193,8 +193,8 @@ button {
   margin-top: auto;
   display: grid;
   gap: 6px;
-  padding: 18px;
-  border-radius: 22px;
+  padding: 16px;
+  border-radius: 20px;
   background: var(--panel-strong);
   box-shadow: var(--shadow-md);
 }
@@ -211,7 +211,7 @@ button {
 
 .folderSection {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .folderSectionHead,
@@ -248,11 +248,11 @@ button {
 .folderQuickLinks,
 .folderTree {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .folderTree {
-  max-height: 420px;
+  max-height: calc(100vh - 300px);
   overflow: auto;
   padding-right: 2px;
 }
@@ -264,9 +264,9 @@ button {
 
 .folderTreeButton {
   min-width: 0;
-  min-height: 40px;
-  padding: 0 14px;
-  border-radius: 16px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 14px;
   background: transparent;
   color: var(--text-soft);
   display: flex;
@@ -285,9 +285,9 @@ button {
 }
 
 .folderTreeGlyph {
-  width: 28px;
-  height: 28px;
-  border-radius: 10px;
+  width: 24px;
+  height: 24px;
+  border-radius: 9px;
   display: grid;
   place-items: center;
   background: var(--field);
@@ -306,13 +306,13 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
 }
 
 .workspacePanel {
   min-width: 0;
   display: grid;
-  gap: 20px;
+  gap: 14px;
 }
 
 .topBar,
@@ -329,14 +329,14 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  padding: 12px;
+  gap: 12px;
+  padding: 10px;
 }
 
 .searchField {
   flex: 1;
   min-width: 0;
-  min-height: 52px;
+  min-height: 46px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -390,9 +390,13 @@ button {
 .storageSectionMeta {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
   margin-top: 18px;
+}
+
+.topBarActions {
+  margin-top: 0;
 }
 
 .controlButton,
@@ -401,8 +405,8 @@ button {
 .fieldSelect,
 .pillButton,
 .storageMetaPill {
-  min-height: 38px;
-  padding: 0 15px;
+  min-height: 34px;
+  padding: 0 13px;
   border-radius: 999px;
   background: var(--control);
   color: var(--text);
@@ -439,13 +443,13 @@ button {
 
 .fieldSelect {
   border: 1px solid transparent;
-  min-width: 122px;
+  min-width: 108px;
 }
 
 .profileChip {
-  min-height: 52px;
-  padding: 0 12px;
-  border-radius: 18px;
+  min-height: 46px;
+  padding: 0 10px;
+  border-radius: 16px;
   background: var(--field);
   display: flex;
   align-items: center;
@@ -453,8 +457,8 @@ button {
 }
 
 .profileAvatar {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -469,7 +473,7 @@ button {
 }
 
 .profileName {
-  font: 700 0.88rem/1.1 "Manrope", sans-serif;
+  font: 700 0.84rem/1.1 "Manrope", sans-serif;
 }
 
 .profileHint {
@@ -479,21 +483,25 @@ button {
 
 .workspaceGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 330px;
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
   align-items: start;
 }
 
 .workspaceMain {
   min-width: 0;
   display: grid;
-  gap: 20px;
+  gap: 12px;
+}
+
+.workspaceMainSolo {
+  gap: 12px;
 }
 
 .dashboardPanel,
 .statsPanel,
 .statusLine {
-  padding: 24px;
+  padding: 18px;
 }
 
 .sectionHead,
@@ -501,12 +509,12 @@ button {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
+  gap: 14px;
 }
 
 .sectionTitle {
   margin: 0;
-  font: 800 1.65rem/1.05 "Manrope", sans-serif;
+  font: 800 1.42rem/1.05 "Manrope", sans-serif;
   letter-spacing: -0.05em;
 }
 
@@ -521,8 +529,69 @@ button {
 }
 
 .sectionText {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   max-width: 56ch;
+}
+
+.topBarUploadButton {
+  min-width: 92px;
+}
+
+.workspaceSummaryBar {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--panel-strong);
+}
+
+.workspaceSummaryInline {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.workspaceMetaBlock {
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: var(--field);
+  display: grid;
+  gap: 4px;
+}
+
+.workspaceMetaBlock strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 700 0.9rem/1.15 "Manrope", sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.workspaceMetaLabel {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font: 700 0.62rem/1 "JetBrains Mono", monospace;
+}
+
+.workspaceCategoryRowCompact {
+  margin-top: 0;
+  gap: 8px;
+}
+
+.workspaceCategoryRowCompact .workspaceCategoryChip {
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+}
+
+.workspaceCategoryRowCompact .workspaceCategoryName {
+  font-size: 0.76rem;
+}
+
+.workspaceCategoryRowCompact .workspaceCategoryValue {
+  font-size: 0.72rem;
 }
 
 .storageMetaPill {
@@ -530,6 +599,102 @@ button {
   padding: 0 12px;
   font: 700 0.68rem/1 "JetBrains Mono", monospace;
   color: var(--text-soft);
+}
+
+.workspaceSummaryPanel {
+  padding: 20px 22px;
+}
+
+.workspaceSummaryHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.workspaceEyebrow,
+.workspaceStatLabel {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font: 700 0.66rem/1 "JetBrains Mono", monospace;
+}
+
+.workspaceTitle {
+  margin-top: 8px;
+  font-size: clamp(1.7rem, 2.2vw, 2.3rem);
+}
+
+.workspaceSummaryText {
+  max-width: 48ch;
+}
+
+.workspaceSummaryStats {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.workspaceStatPill {
+  min-width: 110px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--field);
+  display: grid;
+  gap: 8px;
+  box-shadow: var(--shadow-inset);
+}
+
+.workspaceStatPill strong {
+  font: 800 0.96rem/1 "Manrope", sans-serif;
+  letter-spacing: -0.03em;
+}
+
+.workspaceCategoryRow {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.workspaceCategoryChip {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--field);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workspaceCategoryDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.workspaceCategoryName {
+  color: var(--text-soft);
+  font-size: 0.82rem;
+}
+
+.workspaceCategoryValue {
+  font: 700 0.8rem/1 "JetBrains Mono", monospace;
+}
+
+.workspaceUtilityRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  gap: 16px;
+  align-items: start;
+}
+
+.workspaceBreadcrumbPanel {
+  min-height: 100%;
 }
 
 .storageCardsGrid {
@@ -576,6 +741,73 @@ button {
 .uploadSection,
 .recentFilesSection {
   background: var(--panel-strong);
+}
+
+.uploadSectionCompact {
+  padding: 18px 20px;
+}
+
+.uploadSectionEmbedded {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.uploadSectionEmbedded .dropZone {
+  margin-top: 12px;
+}
+
+.uploadSectionEmbedded .selectedList {
+  margin-top: 10px;
+}
+
+.uploadSectionCompact .uploadSectionHead {
+  gap: 12px;
+}
+
+.uploadSectionCompact .sectionTitle {
+  font-size: 1.2rem;
+}
+
+.uploadSectionCompact .sectionText {
+  margin-top: 6px;
+  max-width: 34ch;
+  font-size: 0.84rem;
+}
+
+.uploadSectionCompact .sectionMeta {
+  white-space: nowrap;
+}
+
+.uploadSectionCompact .uploadDestinationMeta {
+  margin-top: 12px;
+}
+
+.uploadSectionCompact .dropZone {
+  margin-top: 14px;
+  padding: 18px 16px;
+}
+
+.uploadSectionCompact .dropZoneTitle {
+  font-size: 1rem;
+}
+
+.uploadSectionCompact .dropZoneHint {
+  margin-top: 6px;
+  font-size: 0.84rem;
+}
+
+.uploadSectionCompact .uploadRow {
+  margin-top: 14px;
+}
+
+.uploadSectionCompact .uploadProgress {
+  margin-top: 14px;
+}
+
+.uploadSectionCompact .selectedList {
+  margin-top: 12px;
 }
 
 .uploadDestinationMeta {
@@ -704,7 +936,7 @@ button {
 }
 
 .recentTable {
-  margin-top: 18px;
+  margin-top: 14px;
   border-radius: 22px;
   overflow: hidden;
   border: 1px solid var(--line-soft);
@@ -713,16 +945,60 @@ button {
 
 .recentTableGrid {
   display: grid;
-  grid-template-columns: minmax(0, 2.6fr) minmax(96px, 0.72fr) minmax(92px, 0.72fr) minmax(150px, 0.96fr) minmax(170px, 0.92fr);
+  grid-template-columns: minmax(0, 3.4fr) minmax(130px, 1fr) minmax(170px, 1fr) minmax(96px, 0.75fr) minmax(240px, auto);
   gap: 18px;
   align-items: center;
 }
 
+.filesHeadMain {
+  min-width: 0;
+}
+
+.recentTableToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.recentTableScope,
+.recentTableSummary,
+.recentMetaLine,
+.recentActionGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.recentTableScope {
+  min-width: 0;
+}
+
+.recentTableLabel {
+  color: var(--text-muted);
+  font: 700 0.64rem/1 "JetBrains Mono", monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.recentTableValue {
+  font: 700 0.9rem/1.1 "Manrope", sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.recentTableSummary {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  flex-wrap: wrap;
+}
+
 .recentTableHead {
-  padding: 12px 18px;
-  background: var(--table-head);
-  color: var(--text-soft);
-  font: 700 0.68rem/1 "JetBrains Mono", monospace;
+  padding: 12px 20px;
+  background: transparent;
+  color: var(--text-muted);
+  font: 700 0.7rem/1 "JetBrains Mono", monospace;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -732,9 +1008,9 @@ button {
 }
 
 .recentTableRow {
-  padding: 11px 18px;
+  padding: 15px 20px;
   border-top: 1px solid var(--line-soft);
-  transition: background 160ms ease;
+  transition: background 160ms ease, box-shadow 160ms ease;
 }
 
 .recentTableRow:hover {
@@ -744,14 +1020,14 @@ button {
 .recentFileCell {
   min-width: 0;
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-columns: 42px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
 }
 
 .fileBadge {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: 14px;
   display: grid;
   place-items: center;
@@ -763,12 +1039,17 @@ button {
 .recentMeta {
   min-width: 0;
   display: grid;
-  gap: 2px;
+  gap: 6px;
 }
 
 .recentName {
-  font: 700 0.95rem/1.18 "Manrope", sans-serif;
+  font: 700 1.04rem/1.16 "Manrope", sans-serif;
   letter-spacing: -0.02em;
+}
+
+.recentMetaLine {
+  min-width: 0;
+  gap: 8px;
 }
 
 .recentSecondary {
@@ -776,12 +1057,12 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-muted);
-  font-size: 0.76rem;
+  font-size: 0.82rem;
 }
 
 .recentCell {
   display: grid;
-  gap: 4px;
+  gap: 3px;
 }
 
 .mobileLabel {
@@ -793,9 +1074,9 @@ button {
 }
 
 .fileTypeTag {
-  min-height: 22px;
+  min-height: 20px;
   padding: 0 8px;
-  border-radius: 999px;
+  border-radius: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -834,6 +1115,27 @@ button {
   display: grid;
   gap: 20px;
   background: var(--panel-strong);
+}
+
+.statsPanelCompact {
+  padding: 20px;
+  gap: 16px;
+}
+
+.statsPanelCompact .sectionTitle {
+  font-size: 1.2rem;
+}
+
+.statsPanelCompact .sectionText {
+  font-size: 0.84rem;
+}
+
+.statsPanelCompact .donutChart {
+  width: min(100%, 220px);
+}
+
+.statsPanelCompact .donutSummary strong {
+  font-size: 1.14rem;
 }
 
 .donutCard {
@@ -930,6 +1232,7 @@ button {
 .statusLine {
   color: var(--text-soft);
   font-size: 0.9rem;
+  padding: 12px 16px;
 }
 
 .statusInfo {
@@ -938,20 +1241,20 @@ button {
 
 .tableCellValue {
   color: var(--text);
-  font: 700 0.8rem/1.2 "JetBrains Mono", monospace;
+  font: 700 0.86rem/1.2 "JetBrains Mono", monospace;
 }
 
 .recentActions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
-  flex-wrap: wrap;
+  gap: 12px;
+  flex-wrap: nowrap;
 }
 
 .recentActionPrimary,
 .recentActionSecondary {
-  min-height: 30px;
+  min-height: 32px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -964,23 +1267,33 @@ button {
   padding: 0 12px;
   background: var(--accent-soft);
   color: var(--accent);
-  font: 700 0.74rem/1 "Manrope", sans-serif;
+  font: 700 0.78rem/1 "Manrope", sans-serif;
 }
 
 .recentActionPrimary:hover {
   background: rgba(107, 140, 255, 0.18);
 }
 
+.recentActionGroup {
+  gap: 4px;
+  opacity: 0.72;
+}
+
+.recentTableRow:hover .recentActionGroup,
+.recentActionGroup:focus-within {
+  opacity: 1;
+}
+
 .recentActionSecondary {
   padding: 0 8px;
   background: transparent;
   color: var(--text-muted);
-  font: 600 0.74rem/1 "Manrope", sans-serif;
+  font: 600 0.75rem/1 "Manrope", sans-serif;
 }
 
 .recentActionSecondary:hover:not(:disabled) {
   color: var(--text);
-  background: rgba(22, 50, 79, 0.05);
+  background: rgba(22, 50, 79, 0.04);
 }
 
 .recentActionDanger:hover:not(:disabled) {
@@ -995,6 +1308,10 @@ button {
 
 .folderBreadcrumb {
   flex-wrap: wrap;
+}
+
+.folderBreadcrumbInline {
+  gap: 8px;
 }
 
 .folderBreadcrumbItem {
@@ -1065,6 +1382,11 @@ button {
   box-shadow: var(--shadow-xl);
   display: grid;
   gap: 18px;
+}
+
+.uploadDialogPanel {
+  width: min(100%, 720px);
+  gap: 16px;
 }
 
 .dialogTitle {
@@ -1149,6 +1471,10 @@ html[data-theme="dark"] .recentTableRow:hover {
   background: rgba(255, 255, 255, 0.03);
 }
 
+html[data-theme="dark"] .recentTable {
+  background: rgba(31, 39, 50, 0.7);
+}
+
 html[data-theme="dark"] .fileTypeTag {
   background: rgba(167, 182, 255, 0.16);
   color: var(--text-soft);
@@ -1195,6 +1521,10 @@ html[data-theme="dark"] .dialogBackdrop {
     grid-template-columns: 1fr;
   }
 
+  .workspaceUtilityRow {
+    grid-template-columns: 1fr;
+  }
+
   .statsPanel {
     position: static;
   }
@@ -1217,11 +1547,24 @@ html[data-theme="dark"] .dialogBackdrop {
     align-items: stretch;
   }
 
+  .workspaceSummaryHead {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .workspaceSummaryInline {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .topBarActions,
   .filesHeadControls,
   .uploadRow,
   .storageSectionMeta,
   .folderBreadcrumbMeta {
+    justify-content: flex-start;
+  }
+
+  .workspaceSummaryStats {
     justify-content: flex-start;
   }
 
@@ -1237,8 +1580,13 @@ html[data-theme="dark"] .dialogBackdrop {
     grid-template-columns: 1fr;
   }
 
+  .recentTableToolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .recentTableRow {
-    gap: 14px;
+    gap: 10px;
   }
 
   .mobileLabel {
@@ -1247,6 +1595,11 @@ html[data-theme="dark"] .dialogBackdrop {
 
   .recentActions {
     justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .recentActionGroup {
+    opacity: 1;
   }
 
   .dialogBackdrop {
@@ -1268,6 +1621,14 @@ html[data-theme="dark"] .dialogBackdrop {
   .miniBtn,
   .fieldSelect {
     width: 100%;
+  }
+
+  .topBarActions {
+    width: 100%;
+  }
+
+  .workspaceSummaryInline {
+    grid-template-columns: 1fr;
   }
 
   .selectedItem {

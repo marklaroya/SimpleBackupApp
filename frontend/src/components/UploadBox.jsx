@@ -97,7 +97,14 @@ const isRetryableChunkError = (error) => {
   return error.response.status >= 500 || error.response.status === 429;
 };
 
-export default function UploadBox({ apiBase, currentFolder = "", onUploaded, onStatus }) {
+export default function UploadBox({
+  apiBase,
+  currentFolder = "",
+  onUploaded,
+  onStatus,
+  compact = false,
+  embedded = false,
+}) {
   const [selected, setSelected] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -440,13 +447,18 @@ export default function UploadBox({ apiBase, currentFolder = "", onUploaded, onS
   };
 
   return (
-    <section className="dashboardPanel uploadSection">
+    <section
+      className={`dashboardPanel uploadSection ${compact ? "uploadSectionCompact" : ""} ${
+        embedded ? "uploadSectionEmbedded" : ""
+      }`}
+    >
       <div className="sectionHead uploadSectionHead">
         <div>
-          <h2 className="sectionTitle">Quick Upload</h2>
+          <h2 className="sectionTitle">{compact ? "Upload" : "Quick Upload"}</h2>
           <p className="sectionText">
-            Add files to {normalizedCurrentFolder || "Root"} with resumable transfer and
-            progress tracking.
+            {compact
+              ? `Send files straight to ${normalizedCurrentFolder || "Root"}.`
+              : `Add files to ${normalizedCurrentFolder || "Root"} with resumable transfer and progress tracking.`}
           </p>
         </div>
         <div className="sectionMeta">

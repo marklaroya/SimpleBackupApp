@@ -301,7 +301,7 @@ export default function FileTable({
   return (
     <section className="dashboardPanel recentFilesSection">
       <div className="filesHead">
-        <div>
+        <div className="filesHeadMain">
           <h2 className="sectionTitle">Recent Files</h2>
           <p className="sectionText">
             {filteredFiles.length} file(s) in view
@@ -367,11 +367,24 @@ export default function FileTable({
         </div>
       ) : (
         <div className="recentTable">
+          <div className="recentTableToolbar">
+            <div className="recentTableScope">
+              <span className="recentTableLabel">Workspace</span>
+              <strong className="recentTableValue">
+                {currentFolder === ALL_FILES_FOLDER ? "All Files" : currentFolder || "Root"}
+              </strong>
+            </div>
+            <div className="recentTableSummary">
+              <span>{filteredFiles.length} items</span>
+              <span>{rangeStart}-{rangeEnd} visible</span>
+            </div>
+          </div>
+
           <div className="recentTableHead recentTableGrid">
             <span>Name</span>
-            <span>Type</span>
-            <span>Size</span>
+            <span>Folder</span>
             <span>Modified</span>
+            <span>Size</span>
             <span>Actions</span>
           </div>
 
@@ -400,23 +413,28 @@ export default function FileTable({
                       <span className="recentName" title={basename}>
                         {uiName}
                       </span>
-                      <span className="recentSecondary">{secondaryMeta}</span>
+                      <div className="recentMetaLine">
+                        <span className="fileTypeTag">{category}</span>
+                        <span className="recentSecondary">{secondaryMeta}</span>
+                      </div>
                     </div>
                   </div>
 
                   <div className="recentCell">
-                    <span className="mobileLabel">Type</span>
-                    <span className="fileTypeTag">{category}</span>
-                  </div>
-
-                  <div className="recentCell">
-                    <span className="mobileLabel">Size</span>
-                    <span className="tableCellValue">{formatSize(file.size)}</span>
+                    <span className="mobileLabel">Folder</span>
+                    <span className="tableCellMeta" title={folderPath || "Root"}>
+                      {folderPath || "Root"}
+                    </span>
                   </div>
 
                   <div className="recentCell">
                     <span className="mobileLabel">Modified</span>
                     <span className="tableCellMeta">{formatDate(file.modified)}</span>
+                  </div>
+
+                  <div className="recentCell">
+                    <span className="mobileLabel">Size</span>
+                    <span className="tableCellValue">{formatSize(file.size)}</span>
                   </div>
 
                   <div className="recentActions">
@@ -428,38 +446,40 @@ export default function FileTable({
                     >
                       Download
                     </a>
-                    <button
-                      type="button"
-                      className="recentActionSecondary"
-                      onClick={() => onRequestMove?.(file)}
-                      disabled={isDeleting || isRenaming}
-                    >
-                      Move
-                    </button>
-                    <button
-                      type="button"
-                      className="recentActionSecondary"
-                      onClick={() => renameFile(file, uiName)}
-                      disabled={isDeleting || isRenaming}
-                    >
-                      {isRenaming ? "Renaming" : "Rename"}
-                    </button>
-                    <button
-                      type="button"
-                      className="recentActionSecondary"
-                      onClick={() => copyLink(absoluteUrl)}
-                      disabled={isDeleting || isRenaming}
-                    >
-                      Copy
-                    </button>
-                    <button
-                      type="button"
-                      className="recentActionSecondary recentActionDanger"
-                      onClick={() => deleteFile(file, uiName)}
-                      disabled={isDeleting || isRenaming}
-                    >
-                      {isDeleting ? "Deleting" : "Delete"}
-                    </button>
+                    <div className="recentActionGroup">
+                      <button
+                        type="button"
+                        className="recentActionSecondary"
+                        onClick={() => onRequestMove?.(file)}
+                        disabled={isDeleting || isRenaming}
+                      >
+                        Move
+                      </button>
+                      <button
+                        type="button"
+                        className="recentActionSecondary"
+                        onClick={() => renameFile(file, uiName)}
+                        disabled={isDeleting || isRenaming}
+                      >
+                        {isRenaming ? "Renaming" : "Rename"}
+                      </button>
+                      <button
+                        type="button"
+                        className="recentActionSecondary"
+                        onClick={() => copyLink(absoluteUrl)}
+                        disabled={isDeleting || isRenaming}
+                      >
+                        Copy
+                      </button>
+                      <button
+                        type="button"
+                        className="recentActionSecondary recentActionDanger"
+                        onClick={() => deleteFile(file, uiName)}
+                        disabled={isDeleting || isRenaming}
+                      >
+                        {isDeleting ? "Deleting" : "Delete"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

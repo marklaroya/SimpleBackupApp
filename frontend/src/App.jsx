@@ -146,28 +146,6 @@ const resolveStorageGroup = (filename) => {
   return match ? match.key : "Others";
 };
 
-const buildDonutGradient = (segments, totalBytes) => {
-  if (!totalBytes) return "conic-gradient(var(--chart-empty) 0deg 360deg)";
-
-  let current = 0;
-  const stops = [];
-
-  segments.forEach((segment) => {
-    if (!segment.bytes) return;
-    const portion = (segment.bytes / totalBytes) * 360;
-    const start = current;
-    const end = current + portion;
-    stops.push(`${segment.color} ${start}deg ${end}deg`);
-    current = end;
-  });
-
-  if (current < 360) {
-    stops.push(`var(--chart-empty) ${current}deg 360deg`);
-  }
-
-  return `conic-gradient(${stops.join(", ")})`;
-};
-
 export default function App() {
   const API =
     import.meta.env.VITE_API_BASE ||
@@ -190,6 +168,7 @@ export default function App() {
     targetFolder: "",
     submitting: false,
   });
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
   const activeLoadController = useRef(null);
 
@@ -304,11 +283,6 @@ export default function App() {
     return STORAGE_GROUPS.map((group) => initial[group.key]);
   }, [scopedFiles]);
 
-  const donutGradient = useMemo(
-    () => buildDonutGradient(storageCards, scopedBytes),
-    [storageCards, scopedBytes]
-  );
-
   const currentFolderBreadcrumb = useMemo(() => {
     if (currentFolder === ALL_FILES_FOLDER) {
       return [{ label: "All Files", value: ALL_FILES_FOLDER }];
@@ -324,6 +298,13 @@ export default function App() {
     });
     return segments;
   }, [currentFolder]);
+
+  const currentScopeLabel =
+    currentFolder === ALL_FILES_FOLDER ? "All Files" : currentFolder || "Root";
+
+  const latestUpdatedLabel = filesByRecent[0]
+    ? formatDate(filesByRecent[0].modified)
+    : "No files yet";
 
   const statusTone = /error|failed/i.test(status)
     ? "statusError"
@@ -465,8 +446,8 @@ export default function App() {
               BV
             </span>
             <div className="brandMeta">
-              <span className="brandEyebrow">Personal Cloud</span>
-              <span className="brandTitle">Backup Vault</span>
+              <span className="brandEyebrow">Personal Storage</span>
+              
             </div>
           </div>
 
@@ -526,20 +507,27 @@ export default function App() {
         <section className="workspacePanel">
           <header className="topBar">
             <label className="searchField">
-              <span className="searchFieldIcon" aria-hidden="true" />
-              <input
-                className="searchInput"
-                type="search"
-                placeholder="Search files..."
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-              />
-            </label>
+                  <span className="searchFieldIcon" aria-hidden="true" />
+                  <input
+                    className="searchInput"
+                    type="search"
+                    placeholder="Search files or folders..."
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                  />
+                </label>
 
-            <div className="topBarActions">
-              <button
-                type="button"
-                className="controlButton controlButtonQuiet"
+                <div className="topBarActions">
+                  <button
+                    type="button"
+                    className="controlButton btnAccent topBarUploadButton"
+                    onClick={() => setUploadDialogOpen(true)}
+                  >
+                    Upload
+                  </button>
+                  <button
+                    type="button"
+                    className="controlButton controlButtonQuiet"
                 onClick={loadLibrary}
                 disabled={loading}
               >
@@ -561,162 +549,133 @@ export default function App() {
                   <span className="profileHint">Private server</span>
                 </div>
               </div>
-            </div>
-          </header>
-
-          <div className="workspaceGrid">
-            <div className="workspaceMain">
-              <section className="dashboardPanel storageSection">
-                <div className="sectionHead storageSectionHead">
-                  <div>
-                    <h1 className="sectionTitle">Storage</h1>
-                    <p className="sectionText">
-                      Overview for {currentFolder === ALL_FILES_FOLDER ? "all files" : currentFolder || "Root"}.
-                    </p>
-                  </div>
-                  <div className="storageSectionMeta">
-                    <span className="storageMetaPill">{scopedFiles.length} files</span>
-                    <span className="storageMetaPill">{formatSize(scopedBytes)} in scope</span>
-                    <span className="storageMetaPill">{formatSize(remainingBytes)} free</span>
-                  </div>
                 </div>
+              </header>
 
-                <div className="storageCardsGrid">
-                  {storageCards.map((group) => (
-                    <article className="storageCard" key={group.key}>
-                      <span className="storageCardGlyph">{group.shortLabel}</span>
-                      <div className="storageCardBody">
-                        <strong className="storageCardValue">
-                          {group.count} {group.label}
-                        </strong>
-                        <span className="storageCardMeta">{formatSize(group.bytes)}</span>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-
-              <UploadBox
-                apiBase={API}
-                currentFolder={currentFolder === ALL_FILES_FOLDER ? "" : currentFolder}
-                onUploaded={() => {
-                  setStatus("Upload complete");
-                  loadLibrary();
-                }}
-                onStatus={(message) => setStatus(message)}
-              />
-
-              <section className="dashboardPanel folderBreadcrumbPanel">
-                <div className="folderBreadcrumb">
-                  {currentFolderBreadcrumb.map((item, index) => (
-                    <div key={item.value || "root"} className="folderBreadcrumbItem">
-                      <button
-                        type="button"
-                        className={`folderBreadcrumbButton ${
-                          item.value === currentFolder ? "isActive" : ""
-                        }`}
-                        onClick={() => setCurrentFolder(item.value)}
-                      >
-                        {item.label}
-                      </button>
-                      {index < currentFolderBreadcrumb.length - 1 ? (
-                        <span className="folderBreadcrumbDivider">/</span>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="folderBreadcrumbMeta">
-                  <span>{currentFolder === ALL_FILES_FOLDER ? "All folders" : currentFolder || "Root"}</span>
-                  <span>{scopedFiles.length} visible</span>
-                </div>
-              </section>
-
-              <FileTable
-                files={files}
-                loading={loading}
-                apiBase={API}
-                currentFolder={currentFolder}
-                onRefresh={loadLibrary}
-                searchQuery={searchQuery}
-                onRequestMove={openMoveDialog}
-                onRename={async (_previousFilename, _nextFilename, message) => {
-                  setStatus(message || "File renamed");
-                  await loadLibrary();
-                }}
-                onDelete={async (_filename, message) => {
-                  setStatus(message || "File deleted");
-                  await loadLibrary();
-                }}
-              />
-
-              {status && <div className={`statusLine ${statusTone}`}>{status}</div>}
-            </div>
-
-            <aside className="statsPanel">
-              <div className="sectionHead statsPanelHead">
-                <div>
-                  <h2 className="sectionTitle">Storage Stats</h2>
-                  <p className="sectionText">
-                    Scope-aware summary for your current folder view.
-                  </p>
-                </div>
-              </div>
-
-              <div className="donutCard">
-                <div
-                  className="donutChart"
-                  style={{ background: donutGradient }}
-                  aria-hidden="true"
-                >
-                  <div className="donutChartInner">
-                    <strong>{scopedFiles.length}</strong>
-                    <span>files</span>
-                  </div>
-                </div>
-
-                <div className="donutSummary">
-                  <strong>{formatSize(scopedBytes)}</strong>
-                  <span>{currentFolder === ALL_FILES_FOLDER ? "in all folders" : "in current scope"}</span>
-                </div>
-              </div>
-
-              <div className="statsLegend">
-                {storageCards.map((group) => (
-                  <div className="statsLegendRow" key={group.key}>
-                    <div className="statsLegendMain">
-                      <span
-                        className="statsLegendDot"
-                        style={{ background: group.color }}
-                        aria-hidden="true"
-                      />
-                      <span>{group.label}</span>
-                    </div>
-                    <span className="statsLegendValue">{formatSize(group.bytes)}</span>
+          <div className="workspaceMain workspaceMainSolo">
+            <section className="dashboardPanel workspaceSummaryBar">
+              <div className="folderBreadcrumb folderBreadcrumbInline">
+                {currentFolderBreadcrumb.map((item, index) => (
+                  <div key={item.value || "root"} className="folderBreadcrumbItem">
+                    <button
+                      type="button"
+                      className={`folderBreadcrumbButton ${
+                        item.value === currentFolder ? "isActive" : ""
+                      }`}
+                      onClick={() => setCurrentFolder(item.value)}
+                    >
+                      {item.label}
+                    </button>
+                    {index < currentFolderBreadcrumb.length - 1 ? (
+                      <span className="folderBreadcrumbDivider">/</span>
+                    ) : null}
                   </div>
                 ))}
               </div>
 
-              <div className="statsMetaCard">
-                <div className="statsMetaRow">
-                  <span className="statsMetaLabel">Free space</span>
+              <div className="workspaceSummaryInline">
+                <div className="workspaceMetaBlock">
+                  <span className="workspaceMetaLabel">Visible</span>
+                  <strong>{scopedFiles.length}</strong>
+                </div>
+                <div className="workspaceMetaBlock">
+                  <span className="workspaceMetaLabel">In scope</span>
+                  <strong>{formatSize(scopedBytes)}</strong>
+                </div>
+                <div className="workspaceMetaBlock">
+                  <span className="workspaceMetaLabel">Free</span>
                   <strong>{formatSize(remainingBytes)}</strong>
                 </div>
-                <div className="statsMetaRow">
-                  <span className="statsMetaLabel">Latest update</span>
-                  <strong>
-                    {filesByRecent[0] ? formatDate(filesByRecent[0].modified) : "No files yet"}
-                  </strong>
-                </div>
-                <div className="statsMetaRow">
-                  <span className="statsMetaLabel">Current folder</span>
-                  <strong>{currentFolder === ALL_FILES_FOLDER ? "All Files" : currentFolder || "Root"}</strong>
+                <div className="workspaceMetaBlock">
+                  <span className="workspaceMetaLabel">Updated</span>
+                  <strong>{latestUpdatedLabel}</strong>
                 </div>
               </div>
-            </aside>
+
+              <div className="workspaceCategoryRow workspaceCategoryRowCompact">
+                {storageCards.map((group) => (
+                  <div className="workspaceCategoryChip" key={group.key}>
+                    <span
+                      className="workspaceCategoryDot"
+                      style={{ background: group.color }}
+                      aria-hidden="true"
+                    />
+                    <span className="workspaceCategoryName">{group.label}</span>
+                    <strong className="workspaceCategoryValue">{group.count}</strong>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <FileTable
+              files={files}
+              loading={loading}
+              apiBase={API}
+              currentFolder={currentFolder}
+              onRefresh={loadLibrary}
+              searchQuery={searchQuery}
+              onRequestMove={openMoveDialog}
+              onRename={async (_previousFilename, _nextFilename, message) => {
+                setStatus(message || "File renamed");
+                await loadLibrary();
+              }}
+              onDelete={async (_filename, message) => {
+                setStatus(message || "File deleted");
+                await loadLibrary();
+              }}
+            />
+
+            {status && <div className={`statusLine ${statusTone}`}>{status}</div>}
           </div>
         </section>
       </main>
+
+      {uploadDialogOpen ? (
+        <div
+          className="dialogBackdrop"
+          role="presentation"
+          onClick={() => setUploadDialogOpen(false)}
+        >
+          <div
+            className="dialogPanel uploadDialogPanel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="upload-files-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="dialogHead">
+              <div>
+                <h2 className="sectionTitle dialogTitle" id="upload-files-title">
+                  Upload Files
+                </h2>
+                <p className="sectionText">
+                  Add files to {currentFolder === ALL_FILES_FOLDER ? "Root" : currentScopeLabel}.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="controlButton controlButtonQuiet"
+                onClick={() => setUploadDialogOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            <UploadBox
+              compact
+              embedded
+              apiBase={API}
+              currentFolder={currentFolder === ALL_FILES_FOLDER ? "" : currentFolder}
+              onUploaded={() => {
+                setStatus("Upload complete");
+                setUploadDialogOpen(false);
+                loadLibrary();
+              }}
+              onStatus={(message) => setStatus(message)}
+            />
+          </div>
+        </div>
+      ) : null}
 
       {moveDialog.open && moveDialog.file ? (
         <div className="dialogBackdrop" role="presentation" onClick={closeMoveDialog}>
