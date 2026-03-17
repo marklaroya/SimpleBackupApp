@@ -169,6 +169,9 @@ export default function App() {
     submitting: false,
   });
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [mobileFoldersOpen, setMobileFoldersOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
 
   const activeLoadController = useRef(null);
 
@@ -418,6 +421,12 @@ export default function App() {
     }
   };
 
+  const selectFolder = (folder) => {
+    setCurrentFolder(folder);
+    setMobileFoldersOpen(false);
+    setMobileMenuOpen(false);
+  };
+
   const renderFolderNodes = (nodes, depth = 0) => {
     return nodes.map((node) => (
       <div key={node.path} className="folderTreeNode">
@@ -425,7 +434,7 @@ export default function App() {
           type="button"
           className={`folderTreeButton ${currentFolder === node.path ? "isActive" : ""}`}
           style={{ paddingLeft: `${14 + depth * 16}px` }}
-          onClick={() => setCurrentFolder(node.path)}
+          onClick={() => selectFolder(node.path)}
         >
           <span className="folderTreeGlyph" aria-hidden="true">
             FD
@@ -439,8 +448,19 @@ export default function App() {
 
   return (
     <div className="page">
+      {mobileFoldersOpen || mobileMenuOpen ? (
+        <button
+          type="button"
+          className="mobileSidebarScrim"
+          aria-label="Close mobile panels"
+          onClick={() => {
+            setMobileFoldersOpen(false);
+            setMobileMenuOpen(false);
+          }}
+        />
+      ) : null}
       <main className="vaultApp">
-        <aside className="sidebarPanel">
+        <aside className={`sidebarPanel ${mobileFoldersOpen ? "isMobileOpen" : ""}`}>
           <div className="brandBlock">
             <span className="brandMark" aria-hidden="true">
               BV
@@ -463,7 +483,7 @@ export default function App() {
               <button
                 type="button"
                 className={`folderTreeButton ${currentFolder === ALL_FILES_FOLDER ? "isActive" : ""}`}
-                onClick={() => setCurrentFolder(ALL_FILES_FOLDER)}
+                onClick={() => selectFolder(ALL_FILES_FOLDER)}
               >
                 <span className="folderTreeGlyph" aria-hidden="true">
                   AL
@@ -474,7 +494,7 @@ export default function App() {
               <button
                 type="button"
                 className={`folderTreeButton ${currentFolder === "" ? "isActive" : ""}`}
-                onClick={() => setCurrentFolder("")}
+                onClick={() => selectFolder("")}
               >
                 <span className="folderTreeGlyph" aria-hidden="true">
                   RT
@@ -520,14 +540,28 @@ export default function App() {
                 <div className="topBarActions">
                   <button
                     type="button"
-                    className="controlButton btnAccent topBarUploadButton"
+                    className="controlButton controlButtonQuiet mobileOnlyButton"
+                    onClick={() => setMobileFoldersOpen(true)}
+                  >
+                    Folders
+                  </button>
+                  <button
+                    type="button"
+                    className="controlButton controlButtonQuiet mobileOnlyButton"
+                    onClick={() => setMobileMenuOpen(true)}
+                  >
+                    More
+                  </button>
+                  <button
+                    type="button"
+                    className="controlButton btnAccent topBarUploadButton desktopToolbarOnly"
                     onClick={() => setUploadDialogOpen(true)}
                   >
                     Upload
                   </button>
                   <button
                     type="button"
-                    className="controlButton controlButtonQuiet"
+                    className="controlButton controlButtonQuiet desktopToolbarOnly"
                 onClick={loadLibrary}
                 disabled={loading}
               >
@@ -535,14 +569,14 @@ export default function App() {
               </button>
               <button
                 type="button"
-                className="controlButton controlButtonQuiet"
+                className="controlButton controlButtonQuiet desktopToolbarOnly"
                 onClick={() =>
                   setTheme((prev) => (prev === "dark" ? "light" : "dark"))
                 }
               >
                 {theme === "dark" ? "Light" : "Dark"}
               </button>
-              <div className="profileChip">
+              <div className="profileChip desktopToolbarOnly">
                 <span className="profileAvatar">ML</span>
                 <div className="profileMeta">
                   <span className="profileName">My Storage</span>
@@ -553,7 +587,33 @@ export default function App() {
               </header>
 
           <div className="workspaceMain workspaceMainSolo">
-            <section className="dashboardPanel workspaceSummaryBar">
+            <section className="dashboardPanel mobileCurrentBar mobileOnlyPanel">
+              <div className="folderBreadcrumb folderBreadcrumbInline mobileBreadcrumb">
+                {currentFolderBreadcrumb.map((item, index) => (
+                  <div key={item.value || "root"} className="folderBreadcrumbItem">
+                    <button
+                      type="button"
+                      className={`folderBreadcrumbButton ${
+                        item.value === currentFolder ? "isActive" : ""
+                      }`}
+                      onClick={() => selectFolder(item.value)}
+                    >
+                      {item.label}
+                    </button>
+                    {index < currentFolderBreadcrumb.length - 1 ? (
+                      <span className="folderBreadcrumbDivider">/</span>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mobileCurrentMeta">
+                <span>{scopedFiles.length} item(s)</span>
+                <span>{formatSize(scopedBytes)}</span>
+              </div>
+            </section>
+
+            <section className="dashboardPanel workspaceSummaryBar desktopSummaryOnly">
               <div className="folderBreadcrumb folderBreadcrumbInline">
                 {currentFolderBreadcrumb.map((item, index) => (
                   <div key={item.value || "root"} className="folderBreadcrumbItem">
@@ -625,10 +685,128 @@ export default function App() {
               }}
             />
 
+            <section
+              className={`dashboardPanel mobileSummaryPanel mobileOnlyPanel ${
+                mobileSummaryOpen ? "isOpen" : ""
+              }`}
+            >
+              <button
+                type="button"
+                className="mobileSummaryToggle"
+                onClick={() => setMobileSummaryOpen((prev) => !prev)}
+              >
+                <span>Storage summary</span>
+                <span>{mobileSummaryOpen ? "Hide" : "Show"}</span>
+              </button>
+
+              {mobileSummaryOpen ? (
+                <div className="mobileSummaryContent">
+                  <div className="workspaceSummaryInline mobileSummaryGrid">
+                    <div className="workspaceMetaBlock">
+                      <span className="workspaceMetaLabel">Visible</span>
+                      <strong>{scopedFiles.length}</strong>
+                    </div>
+                    <div className="workspaceMetaBlock">
+                      <span className="workspaceMetaLabel">In scope</span>
+                      <strong>{formatSize(scopedBytes)}</strong>
+                    </div>
+                    <div className="workspaceMetaBlock">
+                      <span className="workspaceMetaLabel">Free</span>
+                      <strong>{formatSize(remainingBytes)}</strong>
+                    </div>
+                    <div className="workspaceMetaBlock">
+                      <span className="workspaceMetaLabel">Updated</span>
+                      <strong>{latestUpdatedLabel}</strong>
+                    </div>
+                  </div>
+
+                  <div className="workspaceCategoryRow workspaceCategoryRowCompact">
+                    {storageCards.map((group) => (
+                      <div className="workspaceCategoryChip" key={group.key}>
+                        <span
+                          className="workspaceCategoryDot"
+                          style={{ background: group.color }}
+                          aria-hidden="true"
+                        />
+                        <span className="workspaceCategoryName">{group.label}</span>
+                        <strong className="workspaceCategoryValue">{group.count}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </section>
+
             {status && <div className={`statusLine ${statusTone}`}>{status}</div>}
           </div>
         </section>
       </main>
+
+      <button
+        type="button"
+        className="mobileFab mobileOnlyPanel"
+        onClick={() => setUploadDialogOpen(true)}
+      >
+        Upload
+      </button>
+
+      {mobileMenuOpen ? (
+        <div className="mobileMenuPanel mobileOnlyPanel" role="dialog" aria-modal="true">
+          <div className="mobileMenuHeader">
+            <strong>Quick actions</strong>
+            <button
+              type="button"
+              className="controlButton controlButtonQuiet"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Close
+            </button>
+          </div>
+          <div className="mobileMenuList">
+            <button
+              type="button"
+              className="mobileMenuAction"
+              onClick={() => {
+                setMobileFoldersOpen(true);
+                setMobileMenuOpen(false);
+              }}
+            >
+              Browse folders
+            </button>
+            <button
+              type="button"
+              className="mobileMenuAction"
+              onClick={() => {
+                setMobileSummaryOpen((prev) => !prev);
+                setMobileMenuOpen(false);
+              }}
+            >
+              {mobileSummaryOpen ? "Hide storage summary" : "Show storage summary"}
+            </button>
+            <button
+              type="button"
+              className="mobileMenuAction"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                loadLibrary();
+              }}
+              disabled={loading}
+            >
+              {loading ? "Syncing" : "Refresh"}
+            </button>
+            <button
+              type="button"
+              className="mobileMenuAction"
+              onClick={() => {
+                setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+                setMobileMenuOpen(false);
+              }}
+            >
+              Switch to {theme === "dark" ? "Light" : "Dark"}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {uploadDialogOpen ? (
         <div

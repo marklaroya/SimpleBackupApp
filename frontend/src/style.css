@@ -82,6 +82,7 @@ button {
 .page {
   min-height: 100vh;
   padding: clamp(12px, 1.2vw, 20px);
+  position: relative;
 }
 
 .vaultApp {
@@ -105,6 +106,21 @@ button {
   align-content: start;
   gap: 18px;
   backdrop-filter: blur(16px);
+  z-index: 12;
+}
+
+.mobileSidebarScrim,
+.mobileOnlyButton,
+.mobileOnlyPanel {
+  display: none;
+}
+
+.desktopToolbarOnly {
+  display: inline-flex;
+}
+
+.desktopSummaryOnly {
+  display: grid;
 }
 
 .brandBlock {
@@ -476,6 +492,10 @@ button {
   font: 700 0.84rem/1.1 "Manrope", sans-serif;
 }
 
+.topBarActions .profileChip {
+  flex: 0 0 auto;
+}
+
 .profileHint {
   color: var(--text-muted);
   font-size: 0.76rem;
@@ -544,6 +564,53 @@ button {
   background: var(--panel-strong);
 }
 
+.mobileCurrentBar,
+.mobileSummaryPanel {
+  display: none;
+}
+
+.mobileCurrentBar {
+  padding: 10px 12px;
+  gap: 8px;
+}
+
+.mobileBreadcrumb {
+  gap: 6px;
+}
+
+.mobileCurrentMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.mobileSummaryToggle {
+  width: 100%;
+  min-height: 38px;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  font: 700 0.86rem/1.1 "Manrope", sans-serif;
+}
+
+.mobileSummaryContent {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.mobileSummaryGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .workspaceSummaryInline {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -578,12 +645,16 @@ button {
 .workspaceCategoryRowCompact {
   margin-top: 0;
   gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
 }
 
 .workspaceCategoryRowCompact .workspaceCategoryChip {
   min-height: 30px;
   padding: 0 10px;
   border-radius: 999px;
+  flex: 0 0 auto;
 }
 
 .workspaceCategoryRowCompact .workspaceCategoryName {
@@ -1389,6 +1460,56 @@ button {
   gap: 16px;
 }
 
+.mobileFab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 14;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: var(--shadow-xl);
+  font: 700 0.9rem/1 "Manrope", sans-serif;
+}
+
+.mobileMenuPanel {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 14;
+  width: min(calc(100vw - 24px), 320px);
+  padding: 14px;
+  border-radius: 24px;
+  background: var(--panel-strong);
+  box-shadow: var(--shadow-xl);
+  display: grid;
+  gap: 12px;
+}
+
+.mobileMenuHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mobileMenuList {
+  display: grid;
+  gap: 8px;
+}
+
+.mobileMenuAction {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 14px;
+  background: var(--field);
+  color: var(--text);
+  text-align: left;
+  font: 600 0.84rem/1 "Manrope", sans-serif;
+}
+
 .dialogTitle {
   font-size: 1.3rem;
 }
@@ -1536,7 +1657,49 @@ html[data-theme="dark"] .dialogBackdrop {
 
 @media (max-width: 920px) {
   .page {
-    padding: 16px;
+    padding: 12px;
+  }
+
+  .mobileOnlyButton {
+    display: inline-flex;
+  }
+
+  .mobileOnlyPanel {
+    display: block;
+  }
+
+  .desktopToolbarOnly,
+  .desktopSummaryOnly {
+    display: none;
+  }
+
+  .mobileSidebarScrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 11;
+    border: 0;
+    background: rgba(7, 12, 20, 0.5);
+    backdrop-filter: blur(4px);
+  }
+
+  .vaultApp {
+    gap: 12px;
+  }
+
+  .sidebarPanel {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(84vw, 320px);
+    min-height: 100vh;
+    border-radius: 0 28px 28px 0;
+    transform: translateX(calc(-100% - 16px));
+    transition: transform 180ms ease;
+    overflow: auto;
+  }
+
+  .sidebarPanel.isMobileOpen {
+    transform: translateX(0);
   }
 
   .topBar,
@@ -1547,9 +1710,9 @@ html[data-theme="dark"] .dialogBackdrop {
     align-items: stretch;
   }
 
-  .workspaceSummaryHead {
-    flex-direction: column;
-    align-items: stretch;
+  .topBar {
+    gap: 10px;
+    padding: 8px;
   }
 
   .workspaceSummaryInline {
@@ -1564,71 +1727,216 @@ html[data-theme="dark"] .dialogBackdrop {
     justify-content: flex-start;
   }
 
-  .workspaceSummaryStats {
-    justify-content: flex-start;
+  .topBarActions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: auto;
+    gap: 6px;
   }
 
-  .storageCardsGrid {
+  .mobileCurrentBar,
+  .mobileSummaryPanel {
+    display: grid;
+  }
+
+  .mobileCurrentBar {
+    gap: 8px;
+  }
+
+  .workspaceCategoryRowCompact {
+    flex-wrap: nowrap;
+  }
+
+  .filesHeadControls {
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    gap: 8px;
+  }
+
+  .filesHeadControls > *:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .recentTable {
+    overflow: visible;
   }
 
   .recentTableHead {
     display: none;
   }
 
-  .recentTableGrid {
-    grid-template-columns: 1fr;
-  }
-
   .recentTableToolbar {
     flex-direction: column;
     align-items: flex-start;
+    padding: 14px 14px 12px;
+    gap: 6px;
+  }
+
+  .recentTableGrid {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .recentTableRow {
     gap: 10px;
+    padding: 14px;
   }
 
   .mobileLabel {
     display: inline;
   }
 
+  .recentCell {
+    grid-template-columns: 72px minmax(0, 1fr);
+    align-items: baseline;
+    gap: 8px;
+  }
+
   .recentActions {
     justify-content: flex-start;
     flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .recentActionPrimary {
+    min-height: 34px;
   }
 
   .recentActionGroup {
     opacity: 1;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .filesFooter {
+    gap: 10px;
+  }
+
+  .pager {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .dialogBackdrop {
-    padding: 16px;
+    padding: 12px;
+  }
+
+  .dialogPanel,
+  .uploadDialogPanel {
+    width: 100%;
+    max-height: min(88vh, 820px);
+    overflow: auto;
   }
 }
 
 @media (max-width: 640px) {
-  .sidebarNavList {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .storageCardsGrid {
-    grid-template-columns: 1fr;
-  }
-
   .controlButton,
   .btn,
   .miniBtn,
   .fieldSelect {
-    width: 100%;
+    width: auto;
   }
 
-  .topBarActions {
-    width: 100%;
+  .topBar {
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .filesHeadControls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filesHeadControls > *:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .topBarActions .controlButton {
+    min-height: 36px;
+    padding: 0 10px;
+    font-size: 0.84rem;
+  }
+
+  .searchField {
+    min-height: 42px;
+    padding: 0 14px;
+  }
+
+  .searchInput {
+    font-size: 0.9rem;
+  }
+
+  .sectionTitle {
+    font-size: 1.14rem;
+  }
+
+  .sectionText {
+    font-size: 0.82rem;
+  }
+
+  .mobileCurrentBar,
+  .mobileSummaryPanel {
+    padding: 10px;
   }
 
   .workspaceSummaryInline {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .workspaceMetaBlock {
+    padding: 9px 10px;
+    border-radius: 14px;
+  }
+
+  .workspaceMetaBlock strong {
+    font-size: 0.84rem;
+  }
+
+  .workspaceCategoryRowCompact {
+    gap: 6px;
+    padding-bottom: 0;
+  }
+
+  .workspaceCategoryRowCompact .workspaceCategoryChip {
+    min-height: 28px;
+    padding: 0 9px;
+  }
+
+  .workspaceCategoryRowCompact .workspaceCategoryName {
+    font-size: 0.72rem;
+  }
+
+  .workspaceCategoryRowCompact .workspaceCategoryValue {
+    font-size: 0.68rem;
+  }
+
+  .recentTableToolbar {
+    padding: 12px;
+  }
+
+  .filesHead {
+    gap: 10px;
+  }
+
+  .filesHeadControls {
+    gap: 6px;
+  }
+
+  .filesHeadControls .fieldSelect,
+  .filesHeadControls .controlButton {
+    min-height: 36px;
+    font-size: 0.84rem;
+  }
+
+  .recentTableRow {
+    padding: 12px;
+  }
+
+  .recentFileCell {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 10px;
   }
 
   .selectedItem {
@@ -1639,13 +1947,61 @@ html[data-theme="dark"] .dialogBackdrop {
     min-height: 38px;
   }
 
-  .recentFileCell {
-    grid-template-columns: 42px minmax(0, 1fr);
+  .fileBadge {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    font-size: 0.56rem;
   }
 
-  .fileBadge {
-    width: 42px;
-    height: 42px;
-    border-radius: 14px;
+  .recentName {
+    font-size: 0.98rem;
+  }
+
+  .recentMetaLine {
+    flex-wrap: wrap;
+  }
+
+  .recentCell {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .recentActionPrimary,
+  .recentActionSecondary {
+    width: auto;
+  }
+
+  .mobileLabel {
+    font-size: 0.6rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .workspaceSummaryInline,
+  .filesHeadControls {
+    grid-template-columns: 1fr;
+  }
+
+  .filesHeadControls > *:last-child {
+    grid-column: auto;
+  }
+
+  .workspaceSummaryBar {
+    padding: 10px;
+  }
+
+  .mobileCurrentMeta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .topBarActions {
+    width: auto;
+  }
+
+  .mobileFab {
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   }
 }
